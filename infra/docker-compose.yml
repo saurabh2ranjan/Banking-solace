@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+
+  # ── Solace PubSub+ Event Broker ──────────────────────────────────
+  solace:
+    image: solace/solace-pubsub-standard:latest
+    container_name: solace-pubsub
+    hostname: solace
+    ports:
+      - "8080:8080"   # Web Management Console
+      - "55555:55555" # SMF (Solace Message Format)
+      - "55003:55003" # SMF over TLS
+      - "55443:55443" # Web Messaging over TLS
+      - "8008:8008"   # REST
+      - "1883:1883"   # MQTT
+      - "5672:5672"   # AMQP
+      - "9000:9000"   # REST delivery
+    environment:
+      - username_admin_globalaccesslevel=admin
+      - username_admin_password=admin
+      - system_scaling_maxconnectioncount=100
+    shm_size: '2g'
+    ulimits:
+      core: -1
+      nofile:
+        soft: 2448
+        hard: 6592
+    volumes:
+      - solace-data:/var/lib/solace
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── PostgreSQL for Account Service ───────────────────────────────
+  postgres-accounts:
+    image: postgres:16-alpine
+    container_name: postgres-accounts
+    environment:
+      POSTGRES_DB: accounts_db
+      POSTGRES_USER: accounts_user
+      POSTGRES_PASSWORD: accounts_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-accounts-data:/var/lib/postgresql/data
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accounts_user -d accounts_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PostgreSQL for Payment Service ───────────────────────────────
+  postgres-payments:
+    image: postgres:16-alpine
+    container_name: postgres-payments
+    environment:
+      POSTGRES_DB: payments_db
+      POSTGRES_USER: payments_user
+      POSTGRES_PASSWORD: payments_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg-payments-data:/var/lib/postgresql/data
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payments_user -d payments_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MongoDB for Audit Service ────────────────────────────────────
+  mongo-audit:
+    image: mongo:7
+    container_name: mongo-audit
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: audit_user
+      MONGO_INITDB_ROOT_PASSWORD: audit_pass
+      MONGO_INITDB_DATABASE: audit_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-audit-data:/data/db
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  solace-data:
+  pg-accounts-data:
+  pg-payments-data:
+  mongo-audit-data:
+
+networks:
+  banking-network:
+    driver: bridge
+    name: banking-network

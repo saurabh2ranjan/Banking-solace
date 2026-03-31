@@ -1,0 +1,115 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────
+# docker-compose for ALL banking microservices
+# Usage:
+#   1. Build each service JAR first:
+#        cd account-service && ./mvnw clean package -DskipTests
+#        cd payment-service && ./mvnw clean package -DskipTests
+#        cd notification-service && ./mvnw clean package -DskipTests
+#        cd audit-service && ./mvnw clean package -DskipTests
+#
+#   2. Start infra first:
+#        docker-compose -f infra/docker-compose.yml up -d
+#
+#   3. Then start services:
+#        docker-compose -f docker-compose-services.yml up --build
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  account-service:
+    build: ./account-service
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-accounts:5432/accounts_db
+      SPRING_DATASOURCE_USERNAME: accounts_user
+      SPRING_DATASOURCE_PASSWORD: accounts_pass
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: "tcp://solace:55555"
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    depends_on:
+      - postgres-accounts
+      - solace
+    networks:
+      - banking-network
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    ports:
+      - "8082:8082"
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-payments:5432/payments_db
+      SPRING_DATASOURCE_USERNAME: payments_user
+      SPRING_DATASOURCE_PASSWORD: payments_pass
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: "tcp://solace:55555"
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    depends_on:
+      - postgres-payments
+      - solace
+    networks:
+      - banking-network
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8083:8083"
+    environment:
+      SERVER_PORT: 8083
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: "tcp://solace:55555"
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    depends_on:
+      - solace
+    networks:
+      - banking-network
+    restart: on-failure
+
+  audit-service:
+    build: ./audit-service
+    container_name: audit-service
+    ports:
+      - "8084:8084"
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATA_MONGODB_URI: mongodb://audit_user:audit_pass@mongo-audit:27017/audit_db?authSource=admin
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: "tcp://solace:55555"
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    depends_on:
+      - mongo-audit
+      - solace
+    networks:
+      - banking-network
+    restart: on-failure
+
+# Use the same network as infra/docker-compose.yml
+networks:
+  banking-network:
+    external: true
+    name: banking-network
