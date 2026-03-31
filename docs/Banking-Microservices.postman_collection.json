@@ -1,0 +1,199 @@
+{
+  "info": {
+    "name": "Banking Microservices - Solace PubSub+",
+    "description": "Complete API collection for testing the banking microservices with Solace event-driven architecture",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "account_base", "value": "http://localhost:8081" },
+    { "key": "payment_base", "value": "http://localhost:8082" },
+    { "key": "notification_base", "value": "http://localhost:8083" },
+    { "key": "audit_base", "value": "http://localhost:8084" }
+  ],
+  "item": [
+    {
+      "name": "1. Account Service",
+      "item": [
+        {
+          "name": "Create Checking Account (Alice)",
+          "request": {
+            "method": "POST",
+            "url": "{{account_base}}/api/accounts",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Alice Johnson\",\n  \"email\": \"alice@example.com\",\n  \"accountType\": \"CHECKING\",\n  \"initialBalance\": 10000.00\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Savings Account (Bob)",
+          "request": {
+            "method": "POST",
+            "url": "{{account_base}}/api/accounts",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Bob Smith\",\n  \"email\": \"bob@example.com\",\n  \"accountType\": \"SAVINGS\",\n  \"initialBalance\": 2500.00\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Business Account (Carol)",
+          "request": {
+            "method": "POST",
+            "url": "{{account_base}}/api/accounts",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Carol Williams\",\n  \"email\": \"carol@acmecorp.com\",\n  \"accountType\": \"BUSINESS\",\n  \"initialBalance\": 50000.00\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Accounts",
+          "request": { "method": "GET", "url": "{{account_base}}/api/accounts" }
+        },
+        {
+          "name": "Get Account by ID",
+          "request": { "method": "GET", "url": "{{account_base}}/api/accounts/{{account_id}}" }
+        },
+        {
+          "name": "Get Account by Number",
+          "request": { "method": "GET", "url": "{{account_base}}/api/accounts/number/{{account_number}}" }
+        },
+        {
+          "name": "Deposit to Account",
+          "request": {
+            "method": "POST",
+            "url": "{{account_base}}/api/accounts/{{account_id}}/deposit",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1500.00\n}"
+            }
+          }
+        },
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{account_base}}/actuator/health" }
+        }
+      ]
+    },
+    {
+      "name": "2. Payment Service",
+      "item": [
+        {
+          "name": "Initiate Payment (Alice → Bob)",
+          "request": {
+            "method": "POST",
+            "url": "{{payment_base}}/api/payments",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": \"{{alice_account_number}}\",\n  \"toAccountId\": \"{{bob_account_number}}\",\n  \"amount\": 500.00,\n  \"description\": \"Monthly rent payment\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Initiate Large Payment (should fail - insufficient funds)",
+          "request": {
+            "method": "POST",
+            "url": "{{payment_base}}/api/payments",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": \"{{bob_account_number}}\",\n  \"toAccountId\": \"{{alice_account_number}}\",\n  \"amount\": 999999.00,\n  \"description\": \"This should fail\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get All Payments",
+          "request": { "method": "GET", "url": "{{payment_base}}/api/payments" }
+        },
+        {
+          "name": "Get Payment by ID",
+          "request": { "method": "GET", "url": "{{payment_base}}/api/payments/{{payment_id}}" }
+        },
+        {
+          "name": "Get Payments by Account",
+          "request": { "method": "GET", "url": "{{payment_base}}/api/payments/account/{{account_id}}" }
+        },
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{payment_base}}/actuator/health" }
+        }
+      ]
+    },
+    {
+      "name": "3. Notification Service",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": { "method": "GET", "url": "{{notification_base}}/api/notifications" }
+        },
+        {
+          "name": "Get Notification by ID",
+          "request": { "method": "GET", "url": "{{notification_base}}/api/notifications/{{notification_id}}" }
+        },
+        {
+          "name": "Get Notification Count",
+          "request": { "method": "GET", "url": "{{notification_base}}/api/notifications/count" }
+        },
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{notification_base}}/actuator/health" }
+        }
+      ]
+    },
+    {
+      "name": "4. Audit Service",
+      "item": [
+        {
+          "name": "Get Recent Audit Logs (Top 50)",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit" }
+        },
+        {
+          "name": "Get Audit Stats",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/stats" }
+        },
+        {
+          "name": "Filter by Type - ACCOUNT_CREATED",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/type/ACCOUNT_CREATED" }
+        },
+        {
+          "name": "Filter by Type - PAYMENT_INITIATED",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/type/PAYMENT_INITIATED" }
+        },
+        {
+          "name": "Filter by Type - PAYMENT_COMPLETED",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/type/PAYMENT_COMPLETED" }
+        },
+        {
+          "name": "Filter by Type - PAYMENT_FAILED",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/type/PAYMENT_FAILED" }
+        },
+        {
+          "name": "Filter by Service - account-service",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/service/account-service" }
+        },
+        {
+          "name": "Filter by Service - payment-service",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/service/payment-service" }
+        },
+        {
+          "name": "Filter by Severity - WARN",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/severity/WARN" }
+        },
+        {
+          "name": "Filter by Date Range",
+          "request": { "method": "GET", "url": "{{audit_base}}/api/audit/range?start=2026-01-01T00:00:00&end=2026-12-31T23:59:59" }
+        },
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{audit_base}}/actuator/health" }
+        }
+      ]
+    }
+  ]
+}
