@@ -1,0 +1,54 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: notification-service
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: "tcp://localhost:55555"
+                msgVpn: default
+                clientUsername: default
+                clientPassword: ""
+                connectRetries: 3
+                reconnectRetries: 5
+      bindings:
+        # ── SUBSCRIBERS ─────────────────────────────────────
+        onAccountCreated-in-0:
+          destination: banking/account/created
+          group: notification-service-group
+          binder: solace-binder
+          content-type: application/json
+
+        onPaymentCompleted-in-0:
+          destination: banking/payment/completed
+          group: notification-service-group
+          binder: solace-binder
+          content-type: application/json
+
+        onPaymentFailed-in-0:
+          destination: banking/payment/failed
+          group: notification-service-group
+          binder: solace-binder
+          content-type: application/json
+
+    function:
+      definition: onAccountCreated;onPaymentCompleted;onPaymentFailed
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.banking.notification: DEBUG
+    com.solace: INFO

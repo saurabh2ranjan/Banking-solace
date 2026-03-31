@@ -1,0 +1,74 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: audit-service
+
+  # ── MongoDB for audit log persistence ─────────────────────
+  data:
+    mongodb:
+      uri: mongodb://audit_user:audit_pass@localhost:27017/audit_db?authSource=admin
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: "tcp://localhost:55555"
+                msgVpn: default
+                clientUsername: default
+                clientPassword: ""
+                connectRetries: 3
+                reconnectRetries: 5
+      bindings:
+        # ── WILDCARD SUBSCRIBERS ────────────────────────────
+        # The audit service subscribes to ALL banking events
+        # using Solace wildcard topic subscriptions (banking/>)
+
+        auditAccountCreated-in-0:
+          destination: banking/account/created
+          group: audit-service-group
+          binder: solace-binder
+          content-type: application/json
+
+        auditAccountUpdated-in-0:
+          destination: banking/account/updated
+          group: audit-service-group
+          binder: solace-binder
+          content-type: application/json
+
+        auditPaymentInitiated-in-0:
+          destination: banking/payment/initiated
+          group: audit-service-group
+          binder: solace-binder
+          content-type: application/json
+
+        auditPaymentCompleted-in-0:
+          destination: banking/payment/completed
+          group: audit-service-group
+          binder: solace-binder
+          content-type: application/json
+
+        auditPaymentFailed-in-0:
+          destination: banking/payment/failed
+          group: audit-service-group
+          binder: solace-binder
+          content-type: application/json
+
+    function:
+      definition: auditAccountCreated;auditAccountUpdated;auditPaymentInitiated;auditPaymentCompleted;auditPaymentFailed
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.banking.audit: DEBUG
+    com.solace: INFO
