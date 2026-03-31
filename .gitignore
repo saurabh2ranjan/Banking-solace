@@ -1,0 +1,49 @@
+# ── Claude Code ──────────────────────────────────────────
+.claude/
+
+# ── Maven ────────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+.mvn/wrapper/maven-wrapper.jar
+
+# ── IDE ──────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── OS ───────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# ── Spring Boot ──────────────────────────────────────────
+*.log
+logs/
+spring.log
+
+# ── Docker ───────────────────────────────────────────────
+.docker/
+
+# ── Environment / Secrets ────────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+
+# ── Test output ──────────────────────────────────────────
+/test-results/
+surefire-reports/
