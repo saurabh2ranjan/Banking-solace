@@ -19,6 +19,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   cloud:
+    function:
+      definition: handlePaymentCompleted;handlePaymentFailed
     stream:
       binders:
         solace-binder:
@@ -51,9 +53,6 @@ spring:
           group: payment-service-group
           binder: solace-binder
           content-type: application/json
-
-      function:
-        definition: handlePaymentCompleted;handlePaymentFailed
 
 management:
   endpoints:
