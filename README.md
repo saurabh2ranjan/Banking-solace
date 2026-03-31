@@ -131,9 +131,25 @@ Open `http://localhost:8090` and log in:
 
 > Use the internal container name (e.g. `postgres-accounts`) as the server — Adminer runs inside the Docker network.
 
-### TablePlus / pgAdmin (Desktop)
+### TablePlus / pgAdmin (Desktop) — PostgreSQL
 
 Use `127.0.0.1` as the host and set SSL mode to **Disable**.
+
+### TablePlus — MongoDB (Audit Service)
+
+| Field       | Value                                                                        |
+|-------------|------------------------------------------------------------------------------|
+| Type        | MongoDB                                                                      |
+| Name        | `audit-db (local)`                                                           |
+| Host        | `127.0.0.1`                                                                  |
+| Port        | `27017`                                                                      |
+| User        | `audit_user`                                                                 |
+| Password    | `audit_pass`                                                                 |
+| Database    | `audit_db`                                                                   |
+| Auth Source | `admin`                                                                      |
+| URL         | `mongodb://audit_user:audit_pass@127.0.0.1:27017/audit_db?authSource=admin` |
+
+> In TablePlus: New Connection → MongoDB → fill fields above or use **Import from URL**.
 
 ## Testing the Flow
 
@@ -163,6 +179,55 @@ docker exec postgres-accounts psql -U accounts_user -d accounts_db -c "SELECT * 
 
 # Query payments
 docker exec postgres-payments psql -U payments_user -d payments_db -c "SELECT * FROM payments;"
+```
+
+## Verify Audit Logs in MongoDB
+
+### Via API
+```bash
+curl http://localhost:8084/api/audit | python3 -m json.tool
+```
+
+### Via MongoDB shell (interactive)
+```bash
+docker exec -it mongodb mongosh -u audit_user -p audit_pass \
+  --authenticationDatabase admin audit_db
+```
+
+Useful queries inside the shell:
+```js
+// All audit logs
+db.audit_logs.find().pretty()
+
+// Count total logs
+db.audit_logs.countDocuments()
+
+// Filter by event type
+db.audit_logs.find({ eventType: "ACCOUNT_CREATED" }).pretty()
+db.audit_logs.find({ eventType: "PAYMENT_COMPLETED" }).pretty()
+db.audit_logs.find({ eventType: "PAYMENT_FAILED" }).pretty()
+
+// Filter by severity
+db.audit_logs.find({ severity: "WARN" }).pretty()
+
+// Most recent 5 logs
+db.audit_logs.find().sort({ timestamp: -1 }).limit(5).pretty()
+
+// Exit
+exit
+```
+
+### Via single Docker command (non-interactive)
+```bash
+# All audit logs
+docker exec mongodb mongosh -u audit_user -p audit_pass \
+  --authenticationDatabase admin audit_db \
+  --eval "db.audit_logs.find().pretty()"
+
+# Only failed payments
+docker exec mongodb mongosh -u audit_user -p audit_pass \
+  --authenticationDatabase admin audit_db \
+  --eval "db.audit_logs.find({ eventType: 'PAYMENT_FAILED' }).pretty()"
 ```
 
 ## Observing Events via Logs
