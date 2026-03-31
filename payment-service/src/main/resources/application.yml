@@ -1,0 +1,67 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/payments_db
+    username: payments_user
+    password: payments_pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: "tcp://localhost:55555"
+                msgVpn: default
+                clientUsername: default
+                clientPassword: ""
+                connectRetries: 3
+                reconnectRetries: 5
+      bindings:
+        # ── PUBLISHERS ──────────────────────────────────────
+        paymentInitiatedPublisher-out-0:
+          destination: banking/payment/initiated
+          binder: solace-binder
+          content-type: application/json
+
+        # ── SUBSCRIBERS ─────────────────────────────────────
+        handlePaymentCompleted-in-0:
+          destination: banking/payment/completed
+          group: payment-service-group
+          binder: solace-binder
+          content-type: application/json
+
+        handlePaymentFailed-in-0:
+          destination: banking/payment/failed
+          group: payment-service-group
+          binder: solace-binder
+          content-type: application/json
+
+      function:
+        definition: handlePaymentCompleted;handlePaymentFailed
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    com.banking.payment: DEBUG
+    com.solace: INFO

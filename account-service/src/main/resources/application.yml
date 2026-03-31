@@ -1,0 +1,73 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: account-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/accounts_db
+    username: accounts_user
+    password: accounts_pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          type: solace
+          environment:
+            solace:
+              java:
+                host: "tcp://localhost:55555"
+                msgVpn: default
+                clientUsername: default
+                clientPassword: ""
+                connectRetries: 3
+                reconnectRetries: 5
+      bindings:
+        accountCreatedPublisher-out-0:
+          destination: banking/account/created
+          binder: solace-binder
+          content-type: application/json
+        accountUpdatedPublisher-out-0:
+          destination: banking/account/updated
+          binder: solace-binder
+          content-type: application/json
+        paymentCompletedPublisher-out-0:
+          destination: banking/payment/completed
+          binder: solace-binder
+          content-type: application/json
+        paymentFailedPublisher-out-0:
+          destination: banking/payment/failed
+          binder: solace-binder
+          content-type: application/json
+        processPayment-in-0:
+          destination: banking/payment/initiated
+          group: account-service-group
+          binder: solace-binder
+          content-type: application/json
+      function:
+        definition: processPayment
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.banking.account: DEBUG
+    com.solace: INFO
