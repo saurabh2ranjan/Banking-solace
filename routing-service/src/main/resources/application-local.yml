@@ -1,0 +1,24 @@
+# ── Local development profile ──────────────────────────────────────
+# Used when running: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+# Assumes: infra containers running via docker-compose -f infra/docker-compose.yml up -d
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5434/routing_db
+    username: routing_user
+    password: routing_pass
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                host: "tcp://localhost:55555"

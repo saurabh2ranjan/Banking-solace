@@ -1,0 +1,24 @@
+# ── Docker profile ─────────────────────────────────────────────────
+# Active when: SPRING_PROFILES_ACTIVE=docker (set by docker-compose.yml)
+# Uses container names as hostnames inside the banking-network
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres-routing:5432/routing_db
+    username: routing_user
+    password: routing_pass
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                host: "tcp://solace:55555"
