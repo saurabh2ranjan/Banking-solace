@@ -1,0 +1,26 @@
+# ── Local development profile ──────────────────────────────────────
+# Usage: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+# Assumes: infra containers running via docker-compose -f infra/docker-compose.yml up -d
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/accounts_db
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                host: "tcp://localhost:55555"
+
+app:
+  routing:
+    service-url: http://localhost:8085
+    cache-file: ${user.home}/.banking-solace/routing/account-service-routes.json
