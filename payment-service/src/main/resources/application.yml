@@ -18,9 +18,15 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  # ── Redis (host/port overridden per profile) ──────────────────────
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
   cloud:
     function:
-      definition: handlePaymentCompleted;handlePaymentFailed
+      definition: handlePaymentCompleted;handlePaymentFailed;handleRoutingUpdated
     stream:
       binders:
         solace-binder:
@@ -35,24 +41,43 @@ spring:
                 connectRetries: 3
                 reconnectRetries: 5
       bindings:
-        # ── PUBLISHERS ──────────────────────────────────────
+        # ── PUBLISHERS ──────────────────────────────────────────────
         paymentInitiatedPublisher-out-0:
-          destination: banking/payment/initiated
+          destination: banking/v1/payment/initiated
           binder: solace-binder
           content-type: application/json
 
-        # ── SUBSCRIBERS ─────────────────────────────────────
+        # ── SUBSCRIBERS ─────────────────────────────────────────────
         handlePaymentCompleted-in-0:
-          destination: banking/payment/completed
+          destination: banking/v1/payment/completed
           group: payment-service-group
           binder: solace-binder
           content-type: application/json
 
         handlePaymentFailed-in-0:
-          destination: banking/payment/failed
+          destination: banking/v1/payment/failed
           group: payment-service-group
           binder: solace-binder
           content-type: application/json
+
+        # Route-change events — no group: every instance receives independently
+        handleRoutingUpdated-in-0:
+          destination: banking/v1/routing/updated
+          binder: solace-binder
+          content-type: application/json
+
+# ── Dynamic routing config ─────────────────────────────────────────
+app:
+  routing:
+    service-url: http://localhost:8085
+    cache-file: ${java.io.tmpdir}/banking-routing/payment-service-routes.json
+    cache-max-age-hours: 24
+    connect-timeout-seconds: 3
+    retry-attempts: 2
+    required-event-types:
+      - PAYMENT_INITIATED
+    fallback-topics:
+      PAYMENT_INITIATED: banking/v1/payment/initiated
 
 management:
   endpoints:

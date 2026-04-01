@@ -30,7 +30,7 @@ public class AuditService {
     public void auditAccountCreated(AccountCreatedEvent event) {
         logAuditEntry(
                 event.getEventId(),
-                "banking/account/created",
+                "banking/v1/account/created",
                 "ACCOUNT_CREATED",
                 event.getSource(),
                 "INFO",
@@ -45,7 +45,7 @@ public class AuditService {
     public void auditAccountUpdated(AccountUpdatedEvent event) {
         logAuditEntry(
                 event.getEventId(),
-                "banking/account/updated",
+                "banking/v1/account/updated",
                 "ACCOUNT_UPDATED",
                 event.getSource(),
                 "INFO",
@@ -60,7 +60,7 @@ public class AuditService {
     public void auditPaymentInitiated(PaymentInitiatedEvent event) {
         logAuditEntry(
                 event.getEventId(),
-                "banking/payment/initiated",
+                "banking/v1/payment/initiated",
                 "PAYMENT_INITIATED",
                 event.getSource(),
                 "INFO",
@@ -75,7 +75,7 @@ public class AuditService {
     public void auditPaymentCompleted(PaymentCompletedEvent event) {
         logAuditEntry(
                 event.getEventId(),
-                "banking/payment/completed",
+                "banking/v1/payment/completed",
                 "PAYMENT_COMPLETED",
                 event.getSource(),
                 "INFO",
@@ -91,7 +91,7 @@ public class AuditService {
     public void auditPaymentFailed(PaymentFailedEvent event) {
         logAuditEntry(
                 event.getEventId(),
-                "banking/payment/failed",
+                "banking/v1/payment/failed",
                 "PAYMENT_FAILED",
                 event.getSource(),
                 "WARN",

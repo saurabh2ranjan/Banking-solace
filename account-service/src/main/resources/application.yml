@@ -19,7 +19,15 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+  # ── Redis (host/port overridden per profile) ──────────────────────
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
   cloud:
+    function:
+      definition: processPayment;handleRoutingUpdated
     stream:
       binders:
         solace-binder:
@@ -34,29 +42,55 @@ spring:
                 connectRetries: 3
                 reconnectRetries: 5
       bindings:
+        # ── PUBLISHERS ──────────────────────────────────────────────
         accountCreatedPublisher-out-0:
-          destination: banking/account/created
+          destination: banking/v1/account/created
           binder: solace-binder
           content-type: application/json
         accountUpdatedPublisher-out-0:
-          destination: banking/account/updated
+          destination: banking/v1/account/updated
           binder: solace-binder
           content-type: application/json
         paymentCompletedPublisher-out-0:
-          destination: banking/payment/completed
+          destination: banking/v1/payment/completed
           binder: solace-binder
           content-type: application/json
         paymentFailedPublisher-out-0:
-          destination: banking/payment/failed
+          destination: banking/v1/payment/failed
           binder: solace-binder
           content-type: application/json
+
+        # ── SUBSCRIBERS ─────────────────────────────────────────────
         processPayment-in-0:
-          destination: banking/payment/initiated
+          destination: banking/v1/payment/initiated
           group: account-service-group
           binder: solace-binder
           content-type: application/json
-      function:
-        definition: processPayment
+
+        # Route-change events — no group: every instance receives independently
+        handleRoutingUpdated-in-0:
+          destination: banking/v1/routing/updated
+          binder: solace-binder
+          content-type: application/json
+
+# ── Dynamic routing config ─────────────────────────────────────────
+app:
+  routing:
+    service-url: http://localhost:8085
+    cache-file: ${java.io.tmpdir}/banking-routing/account-service-routes.json
+    cache-max-age-hours: 24
+    connect-timeout-seconds: 3
+    retry-attempts: 2
+    required-event-types:
+      - ACCOUNT_CREATED
+      - ACCOUNT_UPDATED
+      - PAYMENT_COMPLETED
+      - PAYMENT_FAILED
+    fallback-topics:
+      ACCOUNT_CREATED:   banking/v1/account/created
+      ACCOUNT_UPDATED:   banking/v1/account/updated
+      PAYMENT_COMPLETED: banking/v1/payment/completed
+      PAYMENT_FAILED:    banking/v1/payment/failed
 
 management:
   endpoints:

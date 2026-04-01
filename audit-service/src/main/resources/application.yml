@@ -5,7 +5,7 @@ spring:
   application:
     name: audit-service
 
-  # ── MongoDB for audit log persistence ─────────────────────
+  # ── MongoDB for audit log persistence ─────────────────────────────
   data:
     mongodb:
       uri: mongodb://audit_user:audit_pass@localhost:27017/audit_db?authSource=admin
@@ -25,42 +25,52 @@ spring:
                 connectRetries: 3
                 reconnectRetries: 5
       bindings:
-        # ── WILDCARD SUBSCRIBERS ────────────────────────────
-        # The audit service subscribes to ALL banking events
-        # using Solace wildcard topic subscriptions (banking/>)
-
+        # ── WILDCARD SUBSCRIBERS ─────────────────────────────────────
         auditAccountCreated-in-0:
-          destination: banking/account/created
+          destination: banking/v1/account/created
           group: audit-service-group
           binder: solace-binder
           content-type: application/json
 
         auditAccountUpdated-in-0:
-          destination: banking/account/updated
+          destination: banking/v1/account/updated
           group: audit-service-group
           binder: solace-binder
           content-type: application/json
 
         auditPaymentInitiated-in-0:
-          destination: banking/payment/initiated
+          destination: banking/v1/payment/initiated
           group: audit-service-group
           binder: solace-binder
           content-type: application/json
 
         auditPaymentCompleted-in-0:
-          destination: banking/payment/completed
+          destination: banking/v1/payment/completed
           group: audit-service-group
           binder: solace-binder
           content-type: application/json
 
         auditPaymentFailed-in-0:
-          destination: banking/payment/failed
+          destination: banking/v1/payment/failed
           group: audit-service-group
           binder: solace-binder
           content-type: application/json
 
     function:
       definition: auditAccountCreated;auditAccountUpdated;auditPaymentInitiated;auditPaymentCompleted;auditPaymentFailed
+
+# ── Routing validation config ──────────────────────────────────────
+# consumer-topics mirrors the binding destinations above.
+# RoutingValidator checks these against routing-service at startup.
+app:
+  routing:
+    service-url: http://localhost:8085
+    consumer-topics:
+      ACCOUNT_CREATED:   banking/v1/account/created
+      ACCOUNT_UPDATED:   banking/v1/account/updated
+      PAYMENT_INITIATED: banking/v1/payment/initiated
+      PAYMENT_COMPLETED: banking/v1/payment/completed
+      PAYMENT_FAILED:    banking/v1/payment/failed
 
 management:
   endpoints:

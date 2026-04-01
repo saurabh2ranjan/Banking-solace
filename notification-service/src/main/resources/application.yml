@@ -6,6 +6,8 @@ spring:
     name: notification-service
 
   cloud:
+    function:
+      definition: onAccountCreated;onPaymentCompleted;onPaymentFailed
     stream:
       binders:
         solace-binder:
@@ -20,27 +22,35 @@ spring:
                 connectRetries: 3
                 reconnectRetries: 5
       bindings:
-        # ── SUBSCRIBERS ─────────────────────────────────────
+        # ── SUBSCRIBERS ─────────────────────────────────────────────
         onAccountCreated-in-0:
-          destination: banking/account/created
+          destination: banking/v1/account/created
           group: notification-service-group
           binder: solace-binder
           content-type: application/json
 
         onPaymentCompleted-in-0:
-          destination: banking/payment/completed
+          destination: banking/v1/payment/completed
           group: notification-service-group
           binder: solace-binder
           content-type: application/json
 
         onPaymentFailed-in-0:
-          destination: banking/payment/failed
+          destination: banking/v1/payment/failed
           group: notification-service-group
           binder: solace-binder
           content-type: application/json
 
-    function:
-      definition: onAccountCreated;onPaymentCompleted;onPaymentFailed
+# ── Routing validation config ──────────────────────────────────────
+# consumer-topics mirrors the binding destinations above.
+# RoutingValidator checks these against routing-service at startup.
+app:
+  routing:
+    service-url: http://localhost:8085
+    consumer-topics:
+      ACCOUNT_CREATED:   banking/v1/account/created
+      PAYMENT_COMPLETED: banking/v1/payment/completed
+      PAYMENT_FAILED:    banking/v1/payment/failed
 
 management:
   endpoints:

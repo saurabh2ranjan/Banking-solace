@@ -1,6 +1,8 @@
 package com.banking.account.service;
 
 import com.banking.account.event.BankingEvents.*;
+import com.banking.account.routing.EventType;
+import com.banking.account.routing.TopicRoutingCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +15,7 @@ import java.util.Map;
 
 /**
  * Publishes banking events to Solace PubSub+ topics via Spring Cloud Stream.
+ * Topic destinations are resolved dynamically from TopicRoutingCache (DB-backed).
  */
 @Service
 @RequiredArgsConstructor
@@ -21,37 +24,41 @@ public class AccountEventPublisher {
 
     private final StreamBridge streamBridge;
     private final ObjectMapper objectMapper;
+    private final TopicRoutingCache topicRoutingCache;
 
     public void publishAccountCreated(AccountCreatedEvent event) {
-        log.info("Publishing AccountCreatedEvent: accountId={}, accountNumber={}",
-                event.getAccountId(), event.getAccountNumber());
-        boolean sent = streamBridge.send("accountCreatedPublisher-out-0",
+        String destination = topicRoutingCache.get(EventType.ACCOUNT_CREATED);
+        log.info("Publishing AccountCreatedEvent: accountId={}, destination={}",
+                event.getAccountId(), destination);
+        streamBridge.send("accountCreatedPublisher-out-0",
                 MessageBuilder.createMessage(event,
-                        new MessageHeaders(Map.of("solace_destination", "banking/account/created"))));
-        log.debug("AccountCreatedEvent sent={}", sent);
+                        new MessageHeaders(Map.of("solace_destination", destination))));
     }
 
     public void publishAccountUpdated(AccountUpdatedEvent event) {
-        log.info("Publishing AccountUpdatedEvent: accountId={}, field={}",
-                event.getAccountId(), event.getField());
+        String destination = topicRoutingCache.get(EventType.ACCOUNT_UPDATED);
+        log.info("Publishing AccountUpdatedEvent: accountId={}, field={}, destination={}",
+                event.getAccountId(), event.getField(), destination);
         streamBridge.send("accountUpdatedPublisher-out-0",
                 MessageBuilder.createMessage(event,
-                        new MessageHeaders(Map.of("solace_destination", "banking/account/updated"))));
+                        new MessageHeaders(Map.of("solace_destination", destination))));
     }
 
     public void publishPaymentCompleted(PaymentCompletedEvent event) {
-        log.info("Publishing PaymentCompletedEvent: paymentId={}, amount={}",
-                event.getPaymentId(), event.getAmount());
+        String destination = topicRoutingCache.get(EventType.PAYMENT_COMPLETED);
+        log.info("Publishing PaymentCompletedEvent: paymentId={}, amount={}, destination={}",
+                event.getPaymentId(), event.getAmount(), destination);
         streamBridge.send("paymentCompletedPublisher-out-0",
                 MessageBuilder.createMessage(event,
-                        new MessageHeaders(Map.of("solace_destination", "banking/payment/completed"))));
+                        new MessageHeaders(Map.of("solace_destination", destination))));
     }
 
     public void publishPaymentFailed(PaymentFailedEvent event) {
-        log.warn("Publishing PaymentFailedEvent: paymentId={}, reason={}",
-                event.getPaymentId(), event.getReason());
+        String destination = topicRoutingCache.get(EventType.PAYMENT_FAILED);
+        log.warn("Publishing PaymentFailedEvent: paymentId={}, reason={}, destination={}",
+                event.getPaymentId(), event.getReason(), destination);
         streamBridge.send("paymentFailedPublisher-out-0",
                 MessageBuilder.createMessage(event,
-                        new MessageHeaders(Map.of("solace_destination", "banking/payment/failed"))));
+                        new MessageHeaders(Map.of("solace_destination", destination))));
     }
 }

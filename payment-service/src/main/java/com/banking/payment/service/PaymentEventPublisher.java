@@ -1,6 +1,8 @@
 package com.banking.payment.service;
 
 import com.banking.payment.event.PaymentEvents.PaymentInitiatedEvent;
+import com.banking.payment.routing.EventType;
+import com.banking.payment.routing.TopicRoutingCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.stream.function.StreamBridge;
@@ -10,25 +12,27 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
+/**
+ * Publishes payment events to Solace PubSub+ topics via Spring Cloud Stream.
+ * Topic destinations are resolved dynamically from TopicRoutingCache (DB-backed).
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentEventPublisher {
 
     private final StreamBridge streamBridge;
+    private final TopicRoutingCache topicRoutingCache;
 
-    /**
-     * Publishes PaymentInitiatedEvent to Solace topic: banking/payment/initiated
-     * Account Service subscribes to this topic to validate and process the payment.
-     */
     public void publishPaymentInitiated(PaymentInitiatedEvent event) {
-        log.info("▸ Publishing PaymentInitiatedEvent to Solace: paymentId={}, from={}, to={}, amount={}",
+        String destination = topicRoutingCache.get(EventType.PAYMENT_INITIATED);
+        log.info("▸ Publishing PaymentInitiatedEvent: paymentId={}, from={}, to={}, amount={}, destination={}",
                 event.getPaymentId(), event.getFromAccountId(),
-                event.getToAccountId(), event.getAmount());
+                event.getToAccountId(), event.getAmount(), destination);
 
         boolean sent = streamBridge.send("paymentInitiatedPublisher-out-0",
                 MessageBuilder.createMessage(event,
-                        new MessageHeaders(Map.of("solace_destination", "banking/payment/initiated"))));
+                        new MessageHeaders(Map.of("solace_destination", destination))));
 
         log.debug("PaymentInitiatedEvent sent={}", sent);
     }
