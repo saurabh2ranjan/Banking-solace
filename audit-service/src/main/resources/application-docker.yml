@@ -1,0 +1,20 @@
+# ── Docker profile ─────────────────────────────────────────────────
+# Active when: SPRING_PROFILES_ACTIVE=docker (set by docker-compose.yml)
+
+spring:
+  data:
+    mongodb:
+      uri: mongodb://audit_user:audit_pass@mongo-audit:27017/audit_db?authSource=admin
+
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                host: "tcp://solace:55555"
+
+app:
+  routing:
+    service-url: http://routing-service:8085

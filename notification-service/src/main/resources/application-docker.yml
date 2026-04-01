@@ -1,0 +1,16 @@
+# ── Docker profile ─────────────────────────────────────────────────
+# Active when: SPRING_PROFILES_ACTIVE=docker (set by docker-compose.yml)
+
+spring:
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                host: "tcp://solace:55555"
+
+app:
+  routing:
+    service-url: http://routing-service:8085

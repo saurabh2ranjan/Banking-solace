@@ -1,0 +1,16 @@
+# ── Local development profile ──────────────────────────────────────
+# Usage: ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+
+spring:
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                host: "tcp://localhost:55555"
+
+app:
+  routing:
+    service-url: http://localhost:8085
