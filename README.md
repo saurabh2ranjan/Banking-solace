@@ -6,45 +6,62 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      Solace PubSub+ Broker                         │
 │                                                                     │
-│  Topics:                                                            │
-│    banking/account/created     banking/payment/initiated            │
-│    banking/account/updated     banking/payment/completed            │
-│    banking/account/closed      banking/payment/failed               │
-│    banking/notification/send   banking/audit/> (wildcard subscribe) │
+│  Topics (banking/v1/...):                                           │
+│    banking/v1/account/created    banking/v1/payment/initiated       │
+│    banking/v1/account/updated    banking/v1/payment/completed       │
+│    banking/v1/account/closed     banking/v1/payment/failed          │
+│    banking/v1/routing/updated    banking/v1/>  (wildcard audit)     │
 └──────┬──────────────┬──────────────┬──────────────┬─────────────────┘
        │              │              │              │
   ┌────▼────┐   ┌─────▼─────┐  ┌────▼─────┐  ┌────▼─────┐
   │ Account │   │  Payment  │  │ Notific- │  │  Audit   │
   │ Service │   │  Service  │  │  ation   │  │ Service  │
   │ :8081   │   │  :8082    │  │  :8083   │  │  :8084   │
-  └─────────┘   └───────────┘  └──────────┘  └──────────┘
+  └────┬────┘   └─────┬─────┘  └──────────┘  └──────────┘
+       │ topic        │ topic
+       │ lookup       │ lookup
+  ┌────▼──────────────▼────────────────────────────────────┐
+  │               routing-service  :8085                   │
+  │  REST API · Redis write · Audit log · Route events     │
+  └──────────────────────────┬─────────────────────────────┘
+                             │
+          ┌──────────────────┼──────────────────┐
+     ┌────▼────┐        ┌────▼────┐        ┌────▼────┐
+     │routing_db│        │  Redis  │        │  File   │
+     │PostgreSQL│        │ :6379   │        │ cache   │
+     │ :5434   │        │(L2 cache│        │(L3 cache│
+     └─────────┘        └─────────┘        └─────────┘
 ```
 
 ## Services
 
-| Service              | Port | Description                                    |
-|----------------------|------|------------------------------------------------|
-| Account Service      | 8081 | Manages bank accounts (create, update, close)  |
-| Payment Service      | 8082 | Processes payments & transfers                 |
-| Notification Service | 8083 | Sends notifications (email/SMS/push)           |
-| Audit Service        | 8084 | Subscribes to ALL events via wildcard topic    |
+| Service              | Port | Description                                              |
+|----------------------|------|----------------------------------------------------------|
+| Account Service      | 8081 | Manages bank accounts (create, update, close)            |
+| Payment Service      | 8082 | Processes payments & transfers                           |
+| Notification Service | 8083 | Sends notifications (email/SMS/push)                     |
+| Audit Service        | 8084 | Subscribes to ALL events via wildcard topic              |
+| Routing Service      | 8085 | Owns topic routing rules — REST API + Redis + audit log  |
 
 ## Pub/Sub Event Flow
 
-1. **Account Created** → Account Service publishes `banking/account/created`
+1. **Account Created** → Account Service publishes `banking/v1/account/created`
    - Notification Service subscribes → sends welcome notification
    - Audit Service subscribes → logs audit trail
 
-2. **Payment Initiated** → Payment Service publishes `banking/payment/initiated`
+2. **Payment Initiated** → Payment Service publishes `banking/v1/payment/initiated`
    - Account Service subscribes → validates & debits account
    - Audit Service subscribes → logs audit trail
 
-3. **Payment Completed** → Account Service publishes `banking/payment/completed`
+3. **Payment Completed** → Account Service publishes `banking/v1/payment/completed`
    - Notification Service subscribes → sends payment confirmation
    - Audit Service subscribes → logs audit trail
 
-4. **Audit Wildcard** → Audit Service subscribes to `banking/>`
+4. **Audit Wildcard** → Audit Service subscribes to `banking/v1/>`
    - Captures ALL banking events for compliance
+
+5. **Route Changed** → Routing Service publishes `banking/v1/routing/updated`
+   - Account Service and Payment Service subscribe → invalidate L1 topic cache
 
 ## Running
 
@@ -61,14 +78,17 @@ docker-compose up --build
 Run infrastructure first, then each service locally (useful for development):
 
 ```bash
-# Start infrastructure only (Solace, PostgreSQL, MongoDB)
+# Start infrastructure only (Solace, PostgreSQL, MongoDB, Redis)
 docker-compose -f infra/docker-compose.yml up -d
 
+# Start routing-service first (publishers depend on it for route lookup)
+cd routing-service    && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+
 # Start each service locally (separate terminals)
-cd account-service      && ./mvnw spring-boot:run
-cd payment-service      && ./mvnw spring-boot:run
-cd notification-service && ./mvnw spring-boot:run
-cd audit-service        && ./mvnw spring-boot:run
+cd account-service      && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+cd payment-service      && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+cd notification-service && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+cd audit-service        && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 > **Note:** Do not run both Option A and Option B at the same time — the infra containers share the same names and ports and will conflict.
@@ -81,10 +101,89 @@ cd audit-service        && ./mvnw spring-boot:run
 | Solace SMF            | 55556     | Mapped from internal port 55555    |
 | PostgreSQL (accounts) | 5432      | accounts_db                        |
 | PostgreSQL (payments) | 5433      | payments_db                        |
+| PostgreSQL (routing)  | 5434      | routing_db                         |
 | MongoDB (audit)       | 27017     | audit_db                           |
+| Redis                 | 6379      | Routing L2 cache                   |
+| Routing Service       | 8085      | http://localhost:8085/api/routes   |
 | Adminer (DB UI)       | 8090      | http://localhost:8090              |
 
 > **macOS note:** Port 55555 is reserved by the OS on macOS Sequoia. The host-side mapping is `55556:55555`. All inter-service communication inside Docker still uses port 55555 — no config changes needed.
+
+## Dynamic Topic Routing
+
+Topic destinations are managed centrally by `routing-service` — no hardcoded topic strings in publisher code.
+
+### How it works
+
+```
+Publisher (account-service / payment-service)
+  │
+  └─► topicRoutingCache.get("ACCOUNT_CREATED")
+            │
+       L1: in-memory ConcurrentHashMap   ← nanoseconds
+            │ miss
+       L2: Redis hash routing:rules      ← milliseconds, shared across instances
+            │ miss / Redis down
+       L3: local JSON file cache         ← always available, survives Redis outage
+            │ not found
+       L4: application.yml defaults      ← hardcoded last resort, logs ERROR
+```
+
+### Routing API
+
+```bash
+# View all active routing rules
+curl http://localhost:8085/api/routes | python3 -m json.tool
+
+# View a single rule
+curl http://localhost:8085/api/routes/ACCOUNT_CREATED
+
+# Update a topic (triggers Redis update + cache invalidation event)
+curl -X PUT http://localhost:8085/api/routes/ACCOUNT_CREATED \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"banking/v2/account/created","changedBy":"ops-team","reason":"v2 migration"}'
+
+# View full audit history of route changes
+curl http://localhost:8085/api/routes/audit | python3 -m json.tool
+```
+
+### Cache invalidation flow
+
+When a route is updated via `PUT /api/routes/{eventType}`:
+1. routing-service updates `routing_db` (PostgreSQL)
+2. routing-service updates `routing:rules` Redis hash
+3. routing-service publishes `RoutingUpdatedEvent` → `banking/v1/routing/updated`
+4. account-service and payment-service receive the event → update L1 cache + rewrite L3 file
+
+### Routing database (PostgreSQL)
+
+| Field    | Value          |
+|----------|----------------|
+| Host     | `127.0.0.1`    |
+| Port     | `5434`         |
+| Database | `routing_db`   |
+| Username | `routing_user` |
+| Password | `routing_pass` |
+
+```bash
+# View all routing rules directly
+docker exec postgres-routing psql -U routing_user -d routing_db \
+  -c "SELECT event_type, topic, owner_service FROM routing_rules ORDER BY event_type;"
+
+# View audit log
+docker exec postgres-routing psql -U routing_user -d routing_db \
+  -c "SELECT * FROM routing_audit_log ORDER BY changed_at DESC;"
+```
+
+### Redis routing cache
+
+```bash
+# View all cached routing rules
+docker exec redis redis-cli HGETALL routing:rules
+
+# Check a single entry
+docker exec redis redis-cli HGET routing:rules ACCOUNT_CREATED
+```
 
 ## Database Configuration
 

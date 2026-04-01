@@ -1,124 +1,13 @@
 version: '3.8'
 
 # ─────────────────────────────────────────────────────────────────
-# Docker Compose for ALL Banking Microservices
+# Docker Compose for ALL Banking Microservices + Infrastructure
 # Usage: docker-compose up --build
-# Requires: infra/docker-compose.yml running first
 # ─────────────────────────────────────────────────────────────────
 
 services:
 
-  account-service:
-    build:
-      context: ./account-service
-      dockerfile: Dockerfile
-    container_name: account-service
-    ports:
-      - "8081:8081"
-    environment:
-      SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-accounts:5432/accounts_db
-      SPRING_DATASOURCE_USERNAME: accounts_user
-      SPRING_DATASOURCE_PASSWORD: accounts_pass
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
-    depends_on:
-      - postgres-accounts
-      - solace
-    networks:
-      - banking-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    restart: unless-stopped
-
-  payment-service:
-    build:
-      context: ./payment-service
-      dockerfile: Dockerfile
-    container_name: payment-service
-    ports:
-      - "8082:8082"
-    environment:
-      SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-payments:5432/payments_db
-      SPRING_DATASOURCE_USERNAME: payments_user
-      SPRING_DATASOURCE_PASSWORD: payments_pass
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
-    depends_on:
-      - postgres-payments
-      - solace
-    networks:
-      - banking-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    restart: unless-stopped
-
-  notification-service:
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    container_name: notification-service
-    ports:
-      - "8083:8083"
-    environment:
-      SERVER_PORT: 8083
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
-    depends_on:
-      - solace
-    networks:
-      - banking-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    restart: unless-stopped
-
-  audit-service:
-    build:
-      context: ./audit-service
-      dockerfile: Dockerfile
-    container_name: audit-service
-    ports:
-      - "8084:8084"
-    environment:
-      SERVER_PORT: 8084
-      SPRING_DATA_MONGODB_URI: mongodb://audit_user:audit_pass@mongo-audit:27017/audit_db?authSource=admin
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
-    depends_on:
-      - mongo-audit
-      - solace
-    networks:
-      - banking-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    restart: unless-stopped
-
-  # ── Infrastructure (inline for single-command startup) ─────────
+  # ── Infrastructure ──────────────────────────────────────────────
 
   solace:
     image: solace/solace-pubsub-standard:latest
@@ -149,13 +38,18 @@ services:
       retries: 5
       start_period: 60s
 
-  adminer:
-    image: adminer
-    container_name: adminer
+  redis:
+    image: redis:7-alpine
+    container_name: redis
     ports:
-      - "8090:8080"
+      - "6379:6379"
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   postgres-accounts:
@@ -171,6 +65,11 @@ services:
       - pg-accounts-data:/var/lib/postgresql/data
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U accounts_user -d accounts_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   postgres-payments:
     image: postgres:16-alpine
@@ -185,6 +84,30 @@ services:
       - pg-payments-data:/var/lib/postgresql/data
     networks:
       - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payments_user -d payments_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-routing:
+    image: postgres:16-alpine
+    container_name: postgres-routing
+    environment:
+      POSTGRES_DB: routing_db
+      POSTGRES_USER: routing_user
+      POSTGRES_PASSWORD: routing_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg-routing-data:/var/lib/postgresql/data
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U routing_user -d routing_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mongo-audit:
     image: mongo:7
@@ -200,10 +123,187 @@ services:
     networks:
       - banking-network
 
+  adminer:
+    image: adminer
+    container_name: adminer
+    ports:
+      - "8090:8080"
+    networks:
+      - banking-network
+    restart: unless-stopped
+
+  # ── Routing Service (must start before publishers) ──────────────
+
+  routing-service:
+    build:
+      context: ./routing-service
+      dockerfile: Dockerfile
+    container_name: routing-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8085
+    depends_on:
+      postgres-routing:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      solace:
+        condition: service_healthy
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  # ── Application Services ────────────────────────────────────────
+
+  account-service:
+    build:
+      context: ./account-service
+      dockerfile: Dockerfile
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8081
+      # Explicit overrides kept for safety — docker profile also sets these
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-accounts:5432/accounts_db
+      SPRING_DATASOURCE_USERNAME: accounts_user
+      SPRING_DATASOURCE_PASSWORD: accounts_pass
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    volumes:
+      - routing-cache-account:/var/cache/routing
+    depends_on:
+      postgres-accounts:
+        condition: service_healthy
+      solace:
+        condition: service_healthy
+      routing-service:
+        condition: service_started   # soft — account-service falls back via cache on routing-service delay
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-payments:5432/payments_db
+      SPRING_DATASOURCE_USERNAME: payments_user
+      SPRING_DATASOURCE_PASSWORD: payments_pass
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    volumes:
+      - routing-cache-payment:/var/cache/routing
+    depends_on:
+      postgres-payments:
+        condition: service_healthy
+      solace:
+        condition: service_healthy
+      routing-service:
+        condition: service_started
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8083
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    depends_on:
+      solace:
+        condition: service_healthy
+      routing-service:
+        condition: service_started
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  audit-service:
+    build:
+      context: ./audit-service
+      dockerfile: Dockerfile
+    container_name: audit-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8084
+      SPRING_DATA_MONGODB_URI: mongodb://audit_user:audit_pass@mongo-audit:27017/audit_db?authSource=admin
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+    depends_on:
+      mongo-audit:
+        condition: service_started
+      solace:
+        condition: service_healthy
+      routing-service:
+        condition: service_started
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
 volumes:
   pg-accounts-data:
   pg-payments-data:
+  pg-routing-data:
   mongo-audit-data:
+  routing-cache-account:    # L3 file cache for account-service routes
+  routing-cache-payment:    # L3 file cache for payment-service routes
 
 networks:
   banking-network:

@@ -1,5 +1,12 @@
 version: '3.8'
 
+# ─────────────────────────────────────────────────────────────────
+# Infrastructure only — Solace, PostgreSQL, MongoDB, Redis
+# Usage: docker-compose -f infra/docker-compose.yml up -d
+# Then run each service locally with:
+#   cd <service> && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+# ─────────────────────────────────────────────────────────────────
+
 services:
 
   # ── Solace PubSub+ Event Broker ──────────────────────────────────
@@ -8,14 +15,14 @@ services:
     container_name: solace-pubsub
     hostname: solace
     ports:
-      - "8080:8080"   # Web Management Console
-      - "55555:55555" # SMF (Solace Message Format)
-      - "55003:55003" # SMF over TLS
-      - "55443:55443" # Web Messaging over TLS
-      - "8008:8008"   # REST
-      - "1883:1883"   # MQTT
-      - "5672:5672"   # AMQP
-      - "9000:9000"   # REST delivery
+      - "8080:8080"
+      - "55555:55555"
+      - "55003:55003"
+      - "55443:55443"
+      - "8008:8008"
+      - "1883:1883"
+      - "5672:5672"
+      - "9000:9000"
     environment:
       - username_admin_globalaccesslevel=admin
       - username_admin_password=admin
@@ -36,6 +43,21 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+
+  # ── Redis — shared cache (routing rules + future uses) ───────────
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # ── PostgreSQL for Account Service ───────────────────────────────
   postgres-accounts:
@@ -77,6 +99,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── PostgreSQL for Routing Service ───────────────────────────────
+  postgres-routing:
+    image: postgres:16-alpine
+    container_name: postgres-routing
+    environment:
+      POSTGRES_DB: routing_db
+      POSTGRES_USER: routing_user
+      POSTGRES_PASSWORD: routing_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg-routing-data:/var/lib/postgresql/data
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U routing_user -d routing_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── MongoDB for Audit Service ────────────────────────────────────
   mongo-audit:
     image: mongo:7
@@ -97,10 +139,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Adminer — Browser DB UI ──────────────────────────────────────
+  adminer:
+    image: adminer
+    container_name: adminer
+    ports:
+      - "8090:8080"
+    networks:
+      - banking-network
+    restart: unless-stopped
+
 volumes:
   solace-data:
   pg-accounts-data:
   pg-payments-data:
+  pg-routing-data:
   mongo-audit-data:
 
 networks:
