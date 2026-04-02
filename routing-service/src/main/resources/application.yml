@@ -22,7 +22,7 @@ spring:
   # ── Spring Cloud Stream — publisher binding ──────────────────────
   cloud:
     function:
-      definition: routingUpdatedPublisher
+      definition: routingUpdatedPublisher;routingBulkUpdatedPublisher
     stream:
       binders:
         solace-binder:
@@ -38,6 +38,10 @@ spring:
       bindings:
         routingUpdatedPublisher-out-0:
           destination: banking/v1/routing/updated
+          binder: solace-binder
+          content-type: application/json
+        routingBulkUpdatedPublisher-out-0:
+          destination: banking/v1/routing/bulk-updated
           binder: solace-binder
           content-type: application/json
 

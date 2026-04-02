@@ -1,10 +1,13 @@
 package com.banking.routing.service;
 
 import com.banking.routing.dto.AuditLogResponse;
+import com.banking.routing.dto.BulkUpdateRequest;
 import com.banking.routing.dto.RouteResponse;
 import com.banking.routing.dto.UpdateRouteRequest;
 import com.banking.routing.entity.RoutingAuditLog;
 import com.banking.routing.entity.RoutingRule;
+import com.banking.routing.event.RoutingEvents.RoutingBulkUpdatedEvent;
+import com.banking.routing.event.RoutingEvents.RoutingBulkUpdatedEvent.RouteChange;
 import com.banking.routing.event.RoutingEvents.RoutingUpdatedEvent;
 import com.banking.routing.publisher.RoutingEventPublisher;
 import com.banking.routing.repository.RoutingAuditLogRepository;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -109,6 +113,71 @@ public class RoutingService {
                 .build());
 
         return toResponse(rule);
+    }
+
+    // ── Bulk Update ───────────────────────────────────────────────────
+
+    @Transactional
+    public List<RouteResponse> bulkUpdateRoutes(BulkUpdateRequest request) {
+        List<RouteChange> changes    = new ArrayList<>();
+        List<RouteResponse> results  = new ArrayList<>();
+        String actor = request.getChangedBy() != null ? request.getChangedBy() : "system";
+
+        for (BulkUpdateRequest.RouteUpdate update : request.getRoutes()) {
+            RoutingRule rule = routingRuleRepository.findById(update.getEventType())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Unknown event type: " + update.getEventType()));
+
+            String oldTopic = rule.getTopic();
+            String newTopic = update.getTopic();
+
+            if (!oldTopic.equals(newTopic)) {
+                // 1. Update DB
+                rule.setTopic(newTopic);
+                routingRuleRepository.save(rule);
+
+                // 2. Update Redis
+                redisService.put(update.getEventType(), newTopic);
+
+                // 3. Write audit entry
+                auditLogRepository.save(RoutingAuditLog.builder()
+                        .eventType(update.getEventType())
+                        .oldTopic(oldTopic)
+                        .newTopic(newTopic)
+                        .changedBy(actor)
+                        .changedAt(LocalDateTime.now())
+                        .reason(request.getReason())
+                        .build());
+
+                changes.add(RouteChange.builder()
+                        .affectedEventType(update.getEventType())
+                        .oldTopic(oldTopic)
+                        .newTopic(newTopic)
+                        .build());
+            }
+
+            results.add(toResponse(rule));
+        }
+
+        log.info("━━━ [ROUTING] Bulk update complete — {}/{} routes changed ━━━",
+                changes.size(), request.getRoutes().size());
+        changes.forEach(c -> log.info("  {} : {} → {}", c.getAffectedEventType(), c.getOldTopic(), c.getNewTopic()));
+
+        // 4. Publish one event for all changes (only if something actually changed)
+        if (!changes.isEmpty()) {
+            eventPublisher.publishRoutingBulkUpdated(RoutingBulkUpdatedEvent.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .eventType("ROUTING_BULK_UPDATED")
+                    .changes(changes)
+                    .totalRequested(request.getRoutes().size())
+                    .changedBy(actor)
+                    .reason(request.getReason())
+                    .timestamp(LocalDateTime.now())
+                    .source("routing-service")
+                    .build());
+        }
+
+        return results;
     }
 
     // ── Audit ─────────────────────────────────────────────────────────

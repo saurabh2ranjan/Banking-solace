@@ -1,6 +1,7 @@
 package com.banking.routing.controller;
 
 import com.banking.routing.dto.AuditLogResponse;
+import com.banking.routing.dto.BulkUpdateRequest;
 import com.banking.routing.dto.RouteResponse;
 import com.banking.routing.dto.UpdateRouteRequest;
 import com.banking.routing.service.RoutingService;
@@ -42,6 +43,18 @@ public class RoutingController {
             @Valid @RequestBody UpdateRouteRequest request) {
         log.info("▸ PUT /api/routes/{} → topic={}", eventType, request.getTopic());
         return ResponseEntity.ok(routingService.updateRoute(eventType, request));
+    }
+
+    /**
+     * Bulk replace all supplied routes in one atomic transaction.
+     * Only routes whose topic actually changed are written to DB/Redis/audit.
+     * Publishes one RoutingBulkUpdatedEvent covering all changes.
+     */
+    @PutMapping("/bulk")
+    public ResponseEntity<List<RouteResponse>> bulkUpdateRoutes(
+            @Valid @RequestBody BulkUpdateRequest request) {
+        log.info("▸ PUT /api/routes/bulk — {} routes, changedBy={}", request.getRoutes().size(), request.getChangedBy());
+        return ResponseEntity.ok(routingService.bulkUpdateRoutes(request));
     }
 
     /** Full audit history — all route changes across all event types. */
