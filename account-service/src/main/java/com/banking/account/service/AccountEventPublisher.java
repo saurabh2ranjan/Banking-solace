@@ -26,6 +26,15 @@ public class AccountEventPublisher {
     private final ObjectMapper objectMapper;
     private final TopicRoutingCache topicRoutingCache;
 
+    public void publishAccountClosed(AccountClosedEvent event) {
+        String destination = topicRoutingCache.get(EventType.ACCOUNT_CLOSED);
+        log.info("Publishing AccountClosedEvent: accountId={}, destination={}",
+                event.getAccountId(), destination);
+        streamBridge.send("accountClosedPublisher-out-0",
+                MessageBuilder.createMessage(event,
+                        new MessageHeaders(Map.of("solace_destination", destination))));
+    }
+
     public void publishAccountCreated(AccountCreatedEvent event) {
         String destination = topicRoutingCache.get(EventType.ACCOUNT_CREATED);
         log.info("Publishing AccountCreatedEvent: accountId={}, destination={}",

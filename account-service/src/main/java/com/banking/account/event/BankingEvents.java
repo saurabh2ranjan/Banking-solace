@@ -32,6 +32,19 @@ public class BankingEvents {
         private String source;
     }
 
+    @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class AccountClosedEvent {
+        private String eventId;
+        private String accountId;
+        private String accountNumber;
+        private String customerName;
+        private String email;           // needed by notification-service for closure alert
+        private String reason;
+        private BigDecimal finalBalance;
+        private LocalDateTime timestamp;
+        private String source;
+    }
+
     // ── Consumed from Payment Service ──────────────────────────────
     @Data @NoArgsConstructor @AllArgsConstructor @Builder
     public static class PaymentInitiatedEvent {

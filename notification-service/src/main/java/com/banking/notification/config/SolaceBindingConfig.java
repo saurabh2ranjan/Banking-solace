@@ -21,6 +21,19 @@ public class SolaceBindingConfig {
     private final NotificationService notificationService;
 
     /**
+     * Subscribes to: banking/v1/account/closed
+     * Sends account closure notification to the customer.
+     */
+    @Bean
+    public Consumer<AccountClosedEvent> onAccountClosed() {
+        return event -> {
+            log.info("▸ [Solace] Received AccountClosedEvent: account={}, customer={}",
+                    event.getAccountNumber(), event.getCustomerName());
+            notificationService.handleAccountClosed(event);
+        };
+    }
+
+    /**
      * Subscribes to: banking/account/created
      * Sends welcome email/SMS to new customers.
      */

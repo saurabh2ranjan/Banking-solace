@@ -29,6 +29,14 @@ public class SolaceBindingConfig {
     // ── Account Events ─────────────────────────────────────────────
 
     @Bean
+    public Consumer<AccountClosedEvent> auditAccountClosed() {
+        return event -> {
+            log.debug("▸ [AUDIT] Received AccountClosedEvent from Solace");
+            auditService.auditAccountClosed(event);
+        };
+    }
+
+    @Bean
     public Consumer<AccountCreatedEvent> auditAccountCreated() {
         return event -> {
             log.debug("▸ [AUDIT] Received AccountCreatedEvent from Solace");

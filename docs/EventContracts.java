@@ -28,17 +28,20 @@ import java.time.LocalDateTime;
  *
  * PUBLISHERS & SUBSCRIBERS:
  *
- *   Account Service  → publishes: account/created, account/updated,
- *                                  payment/completed, payment/failed
- *                    → subscribes: payment/initiated
+ *   Account Service  → publishes: v1/account/created, v1/account/updated,
+ *                                  v1/account/closed,
+ *                                  v1/payment/completed, v1/payment/failed
+ *                    → subscribes: v1/payment/initiated
  *
- *   Payment Service  → publishes: payment/initiated
- *                    → subscribes: payment/completed, payment/failed
+ *   Payment Service  → publishes: v1/payment/initiated
+ *                    → subscribes: v1/payment/completed, v1/payment/failed
  *
- *   Notification Svc → subscribes: account/created,
- *                                   payment/completed, payment/failed
+ *   Notification Svc → subscribes: v1/account/closed, v1/account/created,
+ *                                   v1/payment/completed, v1/payment/failed
  *
- *   Audit Service    → subscribes: banking/> (ALL events via wildcard)
+ *   Audit Service    → subscribes: v1/account/closed, v1/account/created,
+ *                                   v1/account/updated, v1/payment/initiated,
+ *                                   v1/payment/completed, v1/payment/failed
  */
 public class EventContracts {
 
@@ -89,6 +92,7 @@ public class EventContracts {
         String accountId,
         String accountNumber,
         String customerName,
+        String email,           // needed by notification-service for closure alert
         String reason,
         BigDecimal finalBalance,
         LocalDateTime timestamp,

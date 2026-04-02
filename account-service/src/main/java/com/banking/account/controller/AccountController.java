@@ -47,4 +47,12 @@ public class AccountController {
         BigDecimal amount = body.get("amount");
         return ResponseEntity.ok(accountService.deposit(id, amount));
     }
+
+    @PostMapping("/{id}/close")
+    public ResponseEntity<AccountResponse> closeAccount(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : null;
+        return ResponseEntity.ok(accountService.closeAccount(id, reason));
+    }
 }

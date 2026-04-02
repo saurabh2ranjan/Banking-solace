@@ -152,6 +152,34 @@ public class AccountService {
     }
 
     @Transactional
+    public AccountResponse closeAccount(String accountId, String reason) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Account not found: " + accountId));
+
+        if (account.getStatus() == AccountStatus.CLOSED) {
+            throw new RuntimeException("Account is already closed: " + account.getAccountNumber());
+        }
+
+        account.setStatus(AccountStatus.CLOSED);
+        Account saved = accountRepository.save(account);
+        log.info("Account closed: id={}, number={}", saved.getId(), saved.getAccountNumber());
+
+        eventPublisher.publishAccountClosed(AccountClosedEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .accountId(saved.getId())
+                .accountNumber(saved.getAccountNumber())
+                .customerName(saved.getCustomerName())
+                .email(saved.getEmail())
+                .reason(reason != null ? reason : "No reason provided")
+                .finalBalance(saved.getBalance())
+                .timestamp(LocalDateTime.now())
+                .source("account-service")
+                .build());
+
+        return toResponse(saved);
+    }
+
+    @Transactional
     public AccountResponse deposit(String accountId, BigDecimal amount) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Account not found: " + accountId));

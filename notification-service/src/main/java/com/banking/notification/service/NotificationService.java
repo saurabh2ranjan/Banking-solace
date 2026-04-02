@@ -21,6 +21,48 @@ public class NotificationService {
 
     private final Map<String, Notification> notificationStore = new ConcurrentHashMap<>();
 
+    // ── Account Closed → Closure Notification ─────────────────────
+
+    public void handleAccountClosed(AccountClosedEvent event) {
+        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        log.info("📧 SENDING ACCOUNT CLOSURE NOTIFICATION");
+        log.info("   To:      {} <{}>", event.getCustomerName(), event.getEmail());
+        log.info("   Account: {}", event.getAccountNumber());
+        log.info("   Balance: ${}", event.getFinalBalance());
+        log.info("   Reason:  {}", event.getReason());
+        log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        String subject = "Your Account " + event.getAccountNumber() + " Has Been Closed";
+        String body = String.format(
+                "Dear %s,\n\n" +
+                "Your account (%s) has been closed.\n" +
+                "Final balance: $%s\n" +
+                "Reason: %s\n\n" +
+                "If you have questions, please contact our support team.\n\n" +
+                "Best regards,\nBanking Services Team",
+                event.getCustomerName(),
+                event.getAccountNumber(),
+                event.getFinalBalance(),
+                event.getReason()
+        );
+
+        Notification notification = Notification.builder()
+                .id(UUID.randomUUID().toString())
+                .recipientEmail(event.getEmail())
+                .recipientName(event.getCustomerName())
+                .type(NotificationType.ACCOUNT_CLOSURE)
+                .channel(NotificationChannel.EMAIL)
+                .subject(subject)
+                .body(body)
+                .status("SENT")
+                .relatedEventId(event.getEventId())
+                .sentAt(LocalDateTime.now())
+                .build();
+
+        notificationStore.put(notification.getId(), notification);
+        log.info("✅ Account closure notification dispatched: id={}", notification.getId());
+    }
+
     // ── Account Created → Welcome Notification ─────────────────────
 
     public void handleAccountCreated(AccountCreatedEvent event) {

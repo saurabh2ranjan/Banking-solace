@@ -26,6 +26,12 @@ spring:
                 reconnectRetries: 5
       bindings:
         # ── WILDCARD SUBSCRIBERS ─────────────────────────────────────
+        auditAccountClosed-in-0:
+          destination: banking/v1/account/closed
+          group: audit-service-group
+          binder: solace-binder
+          content-type: application/json
+
         auditAccountCreated-in-0:
           destination: banking/v1/account/created
           group: audit-service-group
@@ -57,7 +63,7 @@ spring:
           content-type: application/json
 
     function:
-      definition: auditAccountCreated;auditAccountUpdated;auditPaymentInitiated;auditPaymentCompleted;auditPaymentFailed
+      definition: auditAccountClosed;auditAccountCreated;auditAccountUpdated;auditPaymentInitiated;auditPaymentCompleted;auditPaymentFailed
 
 # ── Routing validation config ──────────────────────────────────────
 # consumer-topics mirrors the binding destinations above.
@@ -66,6 +72,7 @@ app:
   routing:
     service-url: http://localhost:8085
     consumer-topics:
+      ACCOUNT_CLOSED:    banking/v1/account/closed
       ACCOUNT_CREATED:   banking/v1/account/created
       ACCOUNT_UPDATED:   banking/v1/account/updated
       PAYMENT_INITIATED: banking/v1/payment/initiated

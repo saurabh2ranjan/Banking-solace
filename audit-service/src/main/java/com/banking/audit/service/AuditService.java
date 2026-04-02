@@ -42,6 +42,21 @@ public class AuditService {
         );
     }
 
+    public void auditAccountClosed(AccountClosedEvent event) {
+        logAuditEntry(
+                event.getEventId(),
+                "banking/v1/account/closed",
+                "ACCOUNT_CLOSED",
+                event.getSource(),
+                "INFO",
+                toMap(event),
+                String.format("Account closed: %s (%s), final balance $%s — Reason: %s",
+                        event.getAccountNumber(), event.getCustomerName(),
+                        event.getFinalBalance(), event.getReason()),
+                event.getTimestamp()
+        );
+    }
+
     public void auditAccountUpdated(AccountUpdatedEvent event) {
         logAuditEntry(
                 event.getEventId(),

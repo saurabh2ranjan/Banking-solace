@@ -20,6 +20,19 @@ public class AuditEvents {
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class AccountClosedEvent {
+        private String eventId;
+        private String accountId;
+        private String accountNumber;
+        private String customerName;
+        private String email;
+        private String reason;
+        private BigDecimal finalBalance;
+        private LocalDateTime timestamp;
+        private String source;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor @Builder
     public static class AccountUpdatedEvent {
         private String eventId;
         private String accountId;
