@@ -5,22 +5,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
-        <relativePath/>
+        <groupId>com.banking</groupId>
+        <artifactId>banking-solace-parent</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>com.banking</groupId>
     <artifactId>banking-events-common</artifactId>
-    <version>1.0.0</version>
     <packaging>jar</packaging>
     <description>Shared banking event contracts for cross-service messaging via Solace PubSub+</description>
-
-    <properties>
-        <java.version>17</java.version>
-        <lombok.version>1.18.42</lombok.version>
-    </properties>
 
     <dependencies>
         <dependency>
@@ -34,22 +27,4 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <!-- Standard jar — no spring-boot-maven-plugin repackaging -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                            <version>${lombok.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
