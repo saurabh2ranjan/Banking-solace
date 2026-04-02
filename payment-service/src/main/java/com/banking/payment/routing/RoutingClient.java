@@ -52,7 +52,12 @@ public class RoutingClient {
                         r -> (String) r.get("topic")
                 ));
 
-        log.info("[RoutingClient] Fetched {} routes from routing-service", result.size());
+        if (result.isEmpty()) {
+            throw new RuntimeException(
+                "routing-service returned " + routes.size() + " rules but none are active");
+        }
+
+        log.info("[RoutingClient] Fetched {} active routes from routing-service", result.size());
         return result;
     }
 }

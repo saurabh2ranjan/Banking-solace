@@ -43,7 +43,7 @@ public class TopicRoutingCache {
         int attempt = 0;
         Exception lastError = null;
 
-        while (attempt <= properties.getRetryAttempts()) {
+        while (attempt < properties.getMaxAttempts()) {
             try {
                 Map<String, String> routes = routingClient.fetchRoutes();
                 populateL1(routes);
@@ -54,15 +54,15 @@ public class TopicRoutingCache {
             } catch (Exception e) {
                 lastError = e;
                 attempt++;
-                if (attempt <= properties.getRetryAttempts()) {
+                if (attempt < properties.getMaxAttempts()) {
                     log.warn("[TopicRoutingCache] routing-service attempt {}/{} failed: {}",
-                            attempt, properties.getRetryAttempts(), e.getMessage());
+                            attempt, properties.getMaxAttempts(), e.getMessage());
                 }
             }
         }
 
         log.warn("[TopicRoutingCache] routing-service unreachable after {} attempts: {}",
-                properties.getRetryAttempts() + 1, lastError.getMessage());
+                properties.getMaxAttempts(), lastError.getMessage());
         tryRedisOrFile();
     }
 
@@ -91,6 +91,21 @@ public class TopicRoutingCache {
         String oldTopic = cache.put(eventType, newTopic);
         cachePersistence.save(new HashMap<>(cache));
         log.info("[TopicRoutingCache] Cache refreshed: {} → {} (was: {})", eventType, newTopic, oldTopic);
+    }
+
+    /**
+     * Applies all changed routes from a bulk update into L1 and writes the file once.
+     * Called by RoutingCacheRefresher on a banking/v1/routing/bulk-updated event.
+     *
+     * Uses putAll (not clear+putAll) because the bulk event contains only changed routes —
+     * unchanged routes remain correct in L1 and must not be evicted.
+     */
+    public void refreshAll(Map<String, String> updatedRoutes) {
+        cache.putAll(updatedRoutes);
+        cachePersistence.save(new HashMap<>(cache));
+        log.info("[TopicRoutingCache] Bulk cache refresh: {}/{} routes updated",
+                updatedRoutes.size(), cache.size());
+        updatedRoutes.forEach((k, v) -> log.info("  {} → {}", k, v));
     }
 
     // ── Fallback chain (L2 → L3 → L4) ───────────────────────────────

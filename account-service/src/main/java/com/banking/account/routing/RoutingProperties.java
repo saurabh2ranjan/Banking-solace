@@ -26,8 +26,8 @@ public class RoutingProperties {
     /** HTTP connect timeout when calling routing-service (seconds). */
     private int connectTimeoutSeconds = 3;
 
-    /** How many times to retry routing-service before falling back. */
-    private int retryAttempts = 2;
+    /** Total number of attempts to reach routing-service before falling back (includes the first try). */
+    private int maxAttempts = 3;
 
     /**
      * Event types this service MUST have routes for.
