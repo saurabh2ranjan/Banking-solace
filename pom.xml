@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.banking</groupId>
+    <artifactId>banking-solace-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <description>Banking Microservices — Solace PubSub+ event-driven demo</description>
+
+    <modules>
+        <module>banking-events-common</module>
+        <module>account-service</module>
+        <module>payment-service</module>
+        <module>audit-service</module>
+        <module>notification-service</module>
+        <module>routing-service</module>
+    </modules>
+
+</project>
