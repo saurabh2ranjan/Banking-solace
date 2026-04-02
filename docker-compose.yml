@@ -136,8 +136,8 @@ services:
 
   routing-service:
     build:
-      context: ./routing-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: routing-service/Dockerfile
     container_name: routing-service
     ports:
       - "8085:8085"
