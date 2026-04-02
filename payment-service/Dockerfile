@@ -14,6 +14,7 @@ RUN groupadd -r banking && useradd -r -g banking banking
 WORKDIR /app
 COPY --from=build /build/target/*.jar app.jar
 RUN chown -R banking:banking /app
+RUN mkdir -p /var/cache/routing && chown banking:banking /var/cache/routing
 USER banking
 EXPOSE 8082
 HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
