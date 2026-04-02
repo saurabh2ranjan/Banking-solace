@@ -1,7 +1,7 @@
 package com.banking.payment.service;
 
 import com.banking.payment.dto.*;
-import com.banking.payment.event.PaymentEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.payment.model.Payment;
 import com.banking.payment.model.Payment.PaymentStatus;
 import com.banking.payment.repository.PaymentRepository;

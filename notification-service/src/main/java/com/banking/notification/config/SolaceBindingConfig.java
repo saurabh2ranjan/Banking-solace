@@ -1,6 +1,7 @@
 package com.banking.notification.config;
 
-import com.banking.notification.event.NotificationEvents.*;
+import com.banking.events.AccountEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

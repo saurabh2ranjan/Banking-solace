@@ -1,6 +1,7 @@
 package com.banking.notification.service;
 
-import com.banking.notification.event.NotificationEvents.*;
+import com.banking.events.AccountEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.notification.model.Notification;
 import com.banking.notification.model.Notification.NotificationChannel;
 import com.banking.notification.model.Notification.NotificationType;

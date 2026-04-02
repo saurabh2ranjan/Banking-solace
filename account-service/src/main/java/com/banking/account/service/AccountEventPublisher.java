@@ -1,6 +1,7 @@
 package com.banking.account.service;
 
-import com.banking.account.event.BankingEvents.*;
+import com.banking.events.AccountEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.account.routing.EventType;
 import com.banking.account.routing.TopicRoutingCache;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -8,13 +8,13 @@ import java.time.LocalDateTime;
  * Shared Event Contracts for Banking Microservices
  * ─────────────────────────────────────────────────────────────────
  *
- * These record definitions document the canonical event schemas
- * published and consumed via Solace PubSub+ topics.
+ * CANONICAL SOURCE: banking-events-common/src/main/java/com/banking/events/
+ *   AccountEvents.java  → AccountCreatedEvent, AccountUpdatedEvent, AccountClosedEvent
+ *   PaymentEvents.java  → PaymentInitiatedEvent, PaymentCompletedEvent, PaymentFailedEvent
  *
- * In a production setup, this would be a shared Maven module
- * (banking-events-common) that all services depend on.
- *
- * For this demo, each service has its own copy of these DTOs.
+ * This file is a human-readable reference only. All services depend on
+ * banking-events-common at compile time. Do NOT edit event fields here
+ * without updating the canonical source classes.
  * ─────────────────────────────────────────────────────────────────
  *
  * TOPIC MAPPING:

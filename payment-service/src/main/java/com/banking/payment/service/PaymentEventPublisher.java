@@ -1,6 +1,6 @@
 package com.banking.payment.service;
 
-import com.banking.payment.event.PaymentEvents.PaymentInitiatedEvent;
+import com.banking.events.PaymentEvents.PaymentInitiatedEvent;
 import com.banking.payment.routing.EventType;
 import com.banking.payment.routing.TopicRoutingCache;
 import lombok.RequiredArgsConstructor;

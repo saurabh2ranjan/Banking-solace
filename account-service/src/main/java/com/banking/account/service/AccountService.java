@@ -1,7 +1,8 @@
 package com.banking.account.service;
 
 import com.banking.account.dto.*;
-import com.banking.account.event.BankingEvents.*;
+import com.banking.events.AccountEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.account.model.Account;
 import com.banking.account.model.Account.AccountStatus;
 import com.banking.account.model.Account.AccountType;

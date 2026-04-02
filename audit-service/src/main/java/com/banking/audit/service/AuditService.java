@@ -1,6 +1,7 @@
 package com.banking.audit.service;
 
-import com.banking.audit.event.AuditEvents.*;
+import com.banking.events.AccountEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.audit.model.AuditLog;
 import com.banking.audit.repository.AuditLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;

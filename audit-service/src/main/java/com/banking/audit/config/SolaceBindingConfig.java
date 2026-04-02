@@ -1,6 +1,7 @@
 package com.banking.audit.config;
 
-import com.banking.audit.event.AuditEvents.*;
+import com.banking.events.AccountEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.audit.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

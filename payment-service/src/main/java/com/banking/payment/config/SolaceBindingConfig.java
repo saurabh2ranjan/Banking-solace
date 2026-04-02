@@ -1,6 +1,6 @@
 package com.banking.payment.config;
 
-import com.banking.payment.event.PaymentEvents.*;
+import com.banking.events.PaymentEvents.*;
 import com.banking.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

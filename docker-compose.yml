@@ -165,8 +165,8 @@ services:
 
   account-service:
     build:
-      context: ./account-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: account-service/Dockerfile
     container_name: account-service
     ports:
       - "8081:8081"
@@ -202,8 +202,8 @@ services:
 
   payment-service:
     build:
-      context: ./payment-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: payment-service/Dockerfile
     container_name: payment-service
     ports:
       - "8082:8082"
@@ -238,8 +238,8 @@ services:
 
   notification-service:
     build:
-      context: ./notification-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: notification-service/Dockerfile
     container_name: notification-service
     ports:
       - "8083:8083"
@@ -267,8 +267,8 @@ services:
 
   audit-service:
     build:
-      context: ./audit-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: audit-service/Dockerfile
     container_name: audit-service
     ports:
       - "8084:8084"
