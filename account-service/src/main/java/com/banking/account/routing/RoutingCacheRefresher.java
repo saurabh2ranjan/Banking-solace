@@ -5,16 +5,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
- * Subscribes to banking/v1/routing/updated.
+ * Subscribes to routing change events from routing-service.
  *
- * When routing-service changes a topic, this consumer invalidates the L1 cache
- * entry for the affected event type and overwrites the L3 file cache.
+ * Two event types handled:
+ *   banking/v1/routing/updated      → single route change  → refresh()
+ *   banking/v1/routing/bulk-updated → bulk route change    → refreshAll() + one file write
  *
- * No consumer group is set — each running instance receives the update independently,
- * ensuring all replicas stay in sync.
+ * No consumer group on either binding — every running instance receives updates
+ * independently so all replicas stay in sync.
  */
 @Configuration
 @RequiredArgsConstructor
@@ -30,6 +33,22 @@ public class RoutingCacheRefresher {
                     event.getAffectedEventType(), event.getNewTopic(), event.getOldTopic());
             topicRoutingCache.refresh(event.getAffectedEventType(), event.getNewTopic());
             log.info("✅ [RoutingCacheRefresher] L1 cache updated for {}", event.getAffectedEventType());
+        };
+    }
+
+    @Bean
+    public Consumer<RoutingBulkUpdatedEvent> handleRoutingBulkUpdated() {
+        return event -> {
+            log.info("▸ [RoutingCacheRefresher] Bulk route change received: {}/{} routes changed, changedBy={}",
+                    event.getChanges().size(), event.getTotalRequested(), event.getChangedBy());
+
+            Map<String, String> updatedRoutes = event.getChanges().stream()
+                    .collect(Collectors.toMap(
+                            RoutingBulkUpdatedEvent.RouteChange::getAffectedEventType,
+                            RoutingBulkUpdatedEvent.RouteChange::getNewTopic));
+
+            topicRoutingCache.refreshAll(updatedRoutes);
+            log.info("✅ [RoutingCacheRefresher] L1 cache bulk-updated, L3 file written once");
         };
     }
 }
