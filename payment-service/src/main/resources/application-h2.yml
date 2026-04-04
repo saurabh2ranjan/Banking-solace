@@ -36,16 +36,16 @@ spring:
                 clientPassword: ""
       bindings:
         paymentInitiatedPublisher-out-0:
-          destination: banking/payment/initiated
+          destination: banking/v1/payment/initiated
           binder: solace-binder
           content-type: application/json
         handlePaymentCompleted-in-0:
-          destination: banking/payment/completed
+          destination: banking/v1/payment/completed
           group: payment-service-group
           binder: solace-binder
           content-type: application/json
         handlePaymentFailed-in-0:
-          destination: banking/payment/failed
+          destination: banking/v1/payment/failed
           group: payment-service-group
           binder: solace-binder
           content-type: application/json

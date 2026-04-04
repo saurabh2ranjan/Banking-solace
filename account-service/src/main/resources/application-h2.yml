@@ -36,28 +36,40 @@ spring:
                 clientPassword: ""
       bindings:
         accountCreatedPublisher-out-0:
-          destination: banking/account/created
+          destination: banking/v1/account/created
           binder: solace-binder
           content-type: application/json
         accountUpdatedPublisher-out-0:
-          destination: banking/account/updated
+          destination: banking/v1/account/updated
+          binder: solace-binder
+          content-type: application/json
+        accountClosedPublisher-out-0:
+          destination: banking/v1/account/closed
           binder: solace-binder
           content-type: application/json
         paymentCompletedPublisher-out-0:
-          destination: banking/payment/completed
+          destination: banking/v1/payment/completed
           binder: solace-binder
           content-type: application/json
         paymentFailedPublisher-out-0:
-          destination: banking/payment/failed
+          destination: banking/v1/payment/failed
           binder: solace-binder
           content-type: application/json
         processPayment-in-0:
-          destination: banking/payment/initiated
+          destination: banking/v1/payment/initiated
           group: account-service-group
           binder: solace-binder
           content-type: application/json
+        handleRoutingUpdated-in-0:
+          destination: banking/v1/routing/updated
+          binder: solace-binder
+          content-type: application/json
+        handleRoutingBulkUpdated-in-0:
+          destination: banking/v1/routing/bulk-updated
+          binder: solace-binder
+          content-type: application/json
       function:
-        definition: processPayment
+        definition: processPayment;handleRoutingUpdated;handleRoutingBulkUpdated
 
 logging:
   level:
