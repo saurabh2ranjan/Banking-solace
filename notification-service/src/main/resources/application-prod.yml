@@ -1,0 +1,40 @@
+# ── Prod profile ────────────────────────────────────────────────────
+# banking-vpn with per-service credentials.
+# Auto-provisioning disabled — binds to pre-declared queues only.
+# Usage: SPRING_PROFILES_ACTIVE=prod with env vars for passwords.
+
+spring:
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                msgVpn: banking-vpn
+                clientUsername: notification-svc
+                clientPassword: ${SOLACE_NOTIFICATION_SVC_PASSWORD}
+
+      solace:
+        bindings:
+          # Disable auto-provisioning and bind to pre-declared queues
+          onAccountCreated-in-0:
+            consumer:
+              queueNameExpression: "'q.notification-svc.account.created'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          onAccountClosed-in-0:
+            consumer:
+              queueNameExpression: "'q.notification-svc.account.closed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          onPaymentCompleted-in-0:
+            consumer:
+              queueNameExpression: "'q.notification-svc.payment.completed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          onPaymentFailed-in-0:
+            consumer:
+              queueNameExpression: "'q.notification-svc.payment.failed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false

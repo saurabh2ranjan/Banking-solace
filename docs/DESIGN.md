@@ -203,6 +203,7 @@ Solace: banking/v1/routing/updated
 | `banking/v1/payment/completed`     | account-service  | payment-service, notification-service, audit-service   |
 | `banking/v1/payment/failed`        | account-service  | payment-service, notification-service, audit-service   |
 | `banking/v1/routing/updated`       | routing-service  | account-service, payment-service (no consumer group)   |
+| `banking/v1/routing/bulk-updated`  | routing-service  | account-service, payment-service (no consumer group)   |
 
 ---
 
@@ -217,6 +218,7 @@ Solace: banking/v1/routing/updated
 | GET    | `/api/accounts/{id}`                   | path: `id`                   | `AccountResponse`     | 200    |
 | GET    | `/api/accounts/number/{accountNumber}` | path: `accountNumber`        | `AccountResponse`     | 200    |
 | POST   | `/api/accounts/{id}/deposit`           | path: `id`, body: `{amount}` | `AccountResponse`     | 200    |
+| POST   | `/api/accounts/{id}/close`             | path: `id`, body: `{reason}` (optional) | `AccountResponse` | 200 |
 
 **CreateAccountRequest**
 ```json
@@ -307,17 +309,31 @@ Solace: banking/v1/routing/updated
 
 ### Routing Service (`:8085`)
 
-| Method | Path                        | Request Body / Params       | Response                | Status |
-|--------|-----------------------------|-----------------------------|-------------------------|--------|
-| GET    | `/api/routes`               | —                           | `List<RoutingRule>`     | 200    |
-| GET    | `/api/routes/{eventType}`   | path: `eventType`           | `RoutingRule`           | 200    |
-| PUT    | `/api/routes/{eventType}`   | `UpdateRouteRequest`        | `RoutingRule`           | 200    |
-| GET    | `/api/routes/audit`         | —                           | `List<RoutingAuditLog>` | 200    |
+| Method | Path                             | Request Body / Params       | Response                | Status |
+|--------|----------------------------------|-----------------------------|-------------------------|--------|
+| GET    | `/api/routes`                    | —                           | `List<RouteResponse>`   | 200    |
+| GET    | `/api/routes/{eventType}`        | path: `eventType`           | `RouteResponse`         | 200    |
+| PUT    | `/api/routes/{eventType}`        | `UpdateRouteRequest`        | `RouteResponse`         | 200    |
+| PUT    | `/api/routes/bulk`               | `BulkUpdateRequest`         | `List<RouteResponse>`   | 200    |
+| GET    | `/api/routes/audit`              | —                           | `List<RoutingAuditLog>` | 200    |
+| GET    | `/api/routes/{eventType}/audit`  | path: `eventType`           | `List<RoutingAuditLog>` | 200    |
 
 **UpdateRouteRequest**
 ```json
 {
   "topic": "banking/v2/account/created",
+  "changedBy": "ops-team",
+  "reason": "v2 migration"
+}
+```
+
+**BulkUpdateRequest**
+```json
+{
+  "routes": [
+    { "eventType": "PAYMENT_COMPLETED", "topic": "banking/v2/payment/completed" },
+    { "eventType": "PAYMENT_FAILED",    "topic": "banking/v2/payment/failed" }
+  ],
   "changedBy": "ops-team",
   "reason": "v2 migration"
 }
@@ -344,7 +360,7 @@ account-service
 │   ├── CreateAccountRequest       Inbound request DTO
 │   └── AccountResponse            Outbound response DTO
 ├── event
-│   └── BankingEvents              Static inner event classes (see §7)
+│   └── (removed — event classes now in banking-events-common)
 ├── routing
 │   ├── TopicRoutingCache          Hybrid 4-layer cache — L1 map → L2 Redis → L3 file → L4 defaults
 │   ├── RoutingClient              RestClient calling routing-service /api/routes
@@ -378,7 +394,8 @@ payment-service
 │   ├── TopicRoutingCache          Same hybrid cache pattern as account-service
 │   ├── RoutingClient              RestClient calling routing-service /api/routes
 │   ├── RoutingCachePersistence    L3 file: /var/cache/routing/payment-service-routes.json
-│   ├── RoutingCacheRefresher      Consumer<RoutingUpdatedEvent> — no consumer group (every instance receives)
+│   ├── RoutingCacheRefresher      Consumer<RoutingUpdatedEvent> + Consumer<RoutingBulkUpdatedEvent>
+│   │                              — no consumer group (every instance receives independently)
 │   ├── RoutingValidator           Startup validation
 │   └── RoutingProperties          @ConfigurationProperties("app.routing")
 └── config
@@ -396,13 +413,13 @@ notification-service
 ├── model
 │   └── Notification               In-memory model (not persisted)
 ├── event
-│   └── NotificationEvents         Local copies of relevant event classes
+│   └── (removed — event classes now in banking-events-common)
 ├── routing
 │   └── RoutingValidator           @EventListener(ApplicationReadyEvent) — compares app.yml topics
 │                                  against routing-service; logs WARN on mismatch (does not block)
 └── config
-    └── SolaceBindingConfig        Consumer<AccountCreatedEvent>, Consumer<PaymentCompletedEvent>,
-                                   Consumer<PaymentFailedEvent>
+    └── SolaceBindingConfig        Consumer<AccountCreatedEvent>, Consumer<AccountClosedEvent>,
+                                   Consumer<PaymentCompletedEvent>, Consumer<PaymentFailedEvent>
 ```
 
 ### 6.4 Audit Service (`com.banking.audit`)
@@ -418,11 +435,11 @@ audit-service
 ├── model
 │   └── AuditLog                   MongoDB document (@Document, collection: audit_logs)
 ├── event
-│   └── AuditEvents                Local copies of all event classes
+│   └── (removed — event classes now in banking-events-common)
 ├── routing
-│   └── RoutingValidator           Startup validation for 5 consumer topics
+│   └── RoutingValidator           Startup validation for 6 consumer topics
 └── config
-    └── SolaceBindingConfig        Consumer for all 5 event types + wildcard binding banking/v1/>
+    └── SolaceBindingConfig        Consumer for all 6 event types + wildcard binding banking/v1/>
 ```
 
 ### 6.5 Routing Service (`com.banking.routing`)
@@ -441,8 +458,10 @@ routing-service
 │   ├── RoutingRule                JPA entity (@Entity, table: routing_rules)
 │   └── RoutingAuditLog            JPA entity (@Entity, table: routing_audit_log)
 ├── dto
-│   ├── UpdateRouteRequest         Inbound DTO: topic, changedBy, reason
-│   └── RoutingRuleResponse        Outbound DTO
+│   ├── UpdateRouteRequest         Inbound DTO: single route update
+│   ├── BulkUpdateRequest          Inbound DTO: list of route updates, changedBy, reason
+│   ├── RouteResponse              Outbound DTO for a routing rule
+│   └── AuditLogResponse           Outbound DTO for a routing audit entry
 └── repository
     ├── RoutingRuleRepository      JpaRepository<RoutingRule, String>
     └── RoutingAuditLogRepository  JpaRepository<RoutingAuditLog, Long>
@@ -452,7 +471,7 @@ routing-service
 
 ## 7. Event Contracts
 
-All events share a common envelope: `eventId`, `timestamp`, `source`. The canonical schema reference is `docs/EventContracts.java`.
+All events share a common envelope: `eventId`, `timestamp`, `source`. The canonical source is `banking-events-common/src/main/java/com/banking/events/`. `docs/EventContracts.java` is a human-readable reference only.
 
 ### AccountCreatedEvent
 | Field         | Type          | Description                      |
@@ -530,16 +549,36 @@ All events share a common envelope: `eventId`, `timestamp`, `source`. The canoni
 | source        | String        | `"account-service"`      |
 
 ### RoutingUpdatedEvent
-| Field     | Type          | Description                                        |
-|-----------|---------------|----------------------------------------------------|
-| eventId   | String        | UUID                                               |
-| eventType | String        | The routing key that changed (e.g. ACCOUNT_CREATED)|
-| oldTopic  | String        | Previous topic string                              |
-| newTopic  | String        | New topic string                                   |
-| changedBy | String        | Operator identifier                                |
-| reason    | String        | Change reason                                      |
-| timestamp | LocalDateTime |                                                    |
-| source    | String        | `"routing-service"`                                |
+| Field             | Type          | Description                                        |
+|-------------------|---------------|----------------------------------------------------|
+| eventId           | String        | UUID                                               |
+| eventType         | String        | Always `"ROUTING_UPDATED"`                         |
+| affectedEventType | String        | The routing key that changed (e.g. ACCOUNT_CREATED)|
+| oldTopic          | String        | Previous topic string                              |
+| newTopic          | String        | New topic string                                   |
+| changedBy         | String        | Operator identifier                                |
+| timestamp         | LocalDateTime |                                                    |
+| source            | String        | `"routing-service"`                                |
+
+### RoutingBulkUpdatedEvent
+| Field          | Type               | Description                                              |
+|----------------|--------------------|----------------------------------------------------------|
+| eventId        | String             | UUID                                                     |
+| eventType      | String             | Always `"ROUTING_BULK_UPDATED"`                          |
+| changes        | List\<RouteChange\>| Only routes whose topic actually changed (skips no-ops)  |
+| totalRequested | int                | Total routes in the bulk request                         |
+| changedBy      | String             | Operator identifier                                      |
+| reason         | String             | Change reason                                            |
+| timestamp      | LocalDateTime      |                                                          |
+| source         | String             | `"routing-service"`                                      |
+
+**RouteChange** (nested in `changes`):
+
+| Field             | Type   | Description                          |
+|-------------------|--------|--------------------------------------|
+| affectedEventType | String | e.g. `PAYMENT_COMPLETED`             |
+| oldTopic          | String | Previous topic string                |
+| newTopic          | String | New topic string                     |
 
 ---
 
@@ -656,7 +695,7 @@ Notifications are stored in a `ConcurrentHashMap<String, Notification>` keyed by
 | id             | String              | UUID                                                         |
 | recipientEmail | String              |                                                              |
 | recipientName  | String              |                                                              |
-| type           | NotificationType    | ACCOUNT_WELCOME, PAYMENT_CONFIRMATION, PAYMENT_FAILURE_ALERT |
+| type           | NotificationType    | ACCOUNT_WELCOME, ACCOUNT_CLOSURE, PAYMENT_CONFIRMATION, PAYMENT_FAILURE_ALERT |
 | channel        | NotificationChannel | EMAIL, SMS, PUSH                                             |
 | subject        | String              |                                                              |
 | body           | String              |                                                              |

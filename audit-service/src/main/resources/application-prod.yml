@@ -1,0 +1,50 @@
+# ── Prod profile ────────────────────────────────────────────────────
+# banking-vpn with per-service credentials.
+# Auto-provisioning disabled — binds to pre-declared queues only.
+# Usage: SPRING_PROFILES_ACTIVE=prod with env vars for passwords.
+
+spring:
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                msgVpn: banking-vpn
+                clientUsername: audit-svc
+                clientPassword: ${SOLACE_AUDIT_SVC_PASSWORD}
+
+      solace:
+        bindings:
+          # Disable auto-provisioning and bind to pre-declared queues
+          auditAccountCreated-in-0:
+            consumer:
+              queueNameExpression: "'q.audit-svc.account.created'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          auditAccountUpdated-in-0:
+            consumer:
+              queueNameExpression: "'q.audit-svc.account.updated'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          auditAccountClosed-in-0:
+            consumer:
+              queueNameExpression: "'q.audit-svc.account.closed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          auditPaymentInitiated-in-0:
+            consumer:
+              queueNameExpression: "'q.audit-svc.payment.initiated'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          auditPaymentCompleted-in-0:
+            consumer:
+              queueNameExpression: "'q.audit-svc.payment.completed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          auditPaymentFailed-in-0:
+            consumer:
+              queueNameExpression: "'q.audit-svc.payment.failed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false

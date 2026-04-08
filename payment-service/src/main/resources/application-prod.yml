@@ -1,0 +1,47 @@
+# ── Prod profile ────────────────────────────────────────────────────
+# banking-vpn with per-service credentials.
+# Auto-provisioning disabled — binds to pre-declared queues only.
+# Usage: SPRING_PROFILES_ACTIVE=prod with env vars for passwords.
+
+spring:
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                msgVpn: banking-vpn
+                clientUsername: payment-svc
+                clientPassword: ${SOLACE_PAYMENT_SVC_PASSWORD}
+
+      # routing fan-out: add groups so binder treats bindings as durable
+      bindings:
+        handleRoutingUpdated-in-0:
+          group: payment-svc-routing-updated
+        handleRoutingBulkUpdated-in-0:
+          group: payment-svc-routing-bulk-updated
+
+      solace:
+        bindings:
+          # Disable auto-provisioning and bind to pre-declared queues
+          handlePaymentCompleted-in-0:
+            consumer:
+              queueNameExpression: "'q.payment-svc.payment.completed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          handlePaymentFailed-in-0:
+            consumer:
+              queueNameExpression: "'q.payment-svc.payment.failed'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          handleRoutingUpdated-in-0:
+            consumer:
+              queueNameExpression: "'q.payment-svc.routing.updated'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false
+          handleRoutingBulkUpdated-in-0:
+            consumer:
+              queueNameExpression: "'q.payment-svc.routing.bulk-updated'"
+              provisionDurableQueue: false
+              provisionSubscriptionsToDurableQueue: false

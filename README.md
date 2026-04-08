@@ -60,8 +60,15 @@
 4. **Audit Wildcard** → Audit Service subscribes to `banking/v1/>`
    - Captures ALL banking events for compliance
 
-5. **Route Changed** → Routing Service publishes `banking/v1/routing/updated`
-   - Account Service and Payment Service subscribe → invalidate L1 topic cache
+5. **Account Closed** → Account Service publishes `banking/v1/account/closed`
+   - Notification Service subscribes → sends closure notification (email includes final balance)
+   - Audit Service subscribes → logs immutable audit entry
+
+6. **Route Changed** → Routing Service publishes `banking/v1/routing/updated`
+   - Account Service and Payment Service subscribe → update L1 cache + rewrite L3 file
+
+7. **Bulk Route Changed** → Routing Service publishes `banking/v1/routing/bulk-updated`
+   - Account Service and Payment Service subscribe → apply all changes via `refreshAll()`, L3 file written once
 
 ## Running
 
@@ -70,6 +77,10 @@
 Starts all services + infrastructure in one command:
 
 ```bash
+# One-time setup: create your .env file with per-service Solace passwords
+cp .env.example .env
+# Edit .env and set a password for each SOLACE_*_PASSWORD variable
+
 docker-compose up --build
 ```
 
@@ -78,13 +89,18 @@ docker-compose up --build
 Run infrastructure first, then each service locally (useful for development):
 
 ```bash
-# Start infrastructure only (Solace, PostgreSQL, MongoDB, Redis)
+# Step 1: Install the shared events library into local Maven repo (one-time setup).
+# In enterprise this artifact would be published to Nexus/Artifactory and resolved
+# automatically. Locally we simulate that by installing it once:
+cd banking-events-common && mvn install -DskipTests
+
+# Step 2: Start infrastructure only (Solace, PostgreSQL, MongoDB, Redis)
 docker-compose -f infra/docker-compose.yml up -d
 
-# Start routing-service first (publishers depend on it for route lookup)
+# Step 3: Start routing-service first (publishers depend on it for route lookup)
 cd routing-service    && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 
-# Start each service locally (separate terminals)
+# Step 4: Start each service locally (separate terminals)
 cd account-service      && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 cd payment-service      && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 cd notification-service && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
@@ -143,6 +159,18 @@ curl -X PUT http://localhost:8085/api/routes/ACCOUNT_CREATED \
   -H "Content-Type: application/json" \
   -d '{"topic":"banking/v2/account/created","changedBy":"ops-team","reason":"v2 migration"}'
 
+# Bulk update multiple routes in one atomic transaction
+curl -X PUT http://localhost:8085/api/routes/bulk \
+  -H "Content-Type: application/json" \
+  -d '{
+    "routes": [
+      { "eventType": "PAYMENT_COMPLETED", "topic": "banking/v2/payment/completed" },
+      { "eventType": "PAYMENT_FAILED",    "topic": "banking/v2/payment/failed" }
+    ],
+    "changedBy": "ops-team",
+    "reason": "v2 migration"
+  }'
+
 # View full audit history of route changes
 curl http://localhost:8085/api/routes/audit | python3 -m json.tool
 ```
@@ -154,6 +182,11 @@ When a route is updated via `PUT /api/routes/{eventType}`:
 2. routing-service updates `routing:rules` Redis hash
 3. routing-service publishes `RoutingUpdatedEvent` → `banking/v1/routing/updated`
 4. account-service and payment-service receive the event → update L1 cache + rewrite L3 file
+
+When routes are bulk-updated via `PUT /api/routes/bulk`:
+1–3. Same as above for each changed route (skips no-ops where topic is unchanged)
+4. routing-service publishes one `RoutingBulkUpdatedEvent` → `banking/v1/routing/bulk-updated`
+5. account-service and payment-service call `refreshAll()` → L3 file written exactly once regardless of batch size
 
 ### Routing database (PostgreSQL)
 
@@ -257,6 +290,16 @@ Use `127.0.0.1` as the host and set SSL mode to **Disable**.
 curl -X POST http://localhost:8081/api/accounts \
   -H "Content-Type: application/json" \
   -d '{"customerName":"Alice","email":"alice@bank.com","accountType":"CHECKING","initialBalance":10000}'
+
+# Deposit funds
+curl -X POST http://localhost:8081/api/accounts/{id}/deposit \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 500}'
+
+# Close an account
+curl -X POST http://localhost:8081/api/accounts/{id}/close \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Customer request"}'
 
 # Initiate a payment (replace account IDs from the create response)
 curl -X POST http://localhost:8082/api/payments \
@@ -365,7 +408,7 @@ docker logs -f notification-service & docker logs -f audit-service
 │ 📋 AUDIT LOG RECORDED                                  │
 │ ID:       <mongo-id>
 │ Type:     ACCOUNT_CREATED
-│ Topic:    banking/account/created
+│ Topic:    banking/v1/account/created
 │ Source:   account-service
 │ Severity: INFO
 │ Summary:  <description>
@@ -387,7 +430,7 @@ docker logs -f notification-service & docker logs -f audit-service
 **audit-service**
 ```
 │ Type:     PAYMENT_COMPLETED
-│ Topic:    banking/payment/completed
+│ Topic:    banking/v1/payment/completed
 │ Source:   account-service
 │ Severity: INFO
 ```
@@ -407,7 +450,7 @@ docker logs -f notification-service & docker logs -f audit-service
 **audit-service**
 ```
 │ Type:     PAYMENT_FAILED
-│ Topic:    banking/payment/failed
+│ Topic:    banking/v1/payment/failed
 │ Source:   account-service
 │ Severity: WARN
 ```

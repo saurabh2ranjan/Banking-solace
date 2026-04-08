@@ -5,16 +5,27 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.banking</groupId>
-        <artifactId>banking-solace-parent</artifactId>
-        <version>1.0.0</version>
-        <relativePath>../pom.xml</relativePath>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.5</version>
+        <relativePath/>
     </parent>
 
+    <groupId>com.banking</groupId>
     <artifactId>audit-service</artifactId>
+    <version>1.0.0</version>
     <description>Audit Service - Wildcard subscriber for ALL banking events via Solace PubSub+</description>
 
+    <properties>
+        <java.version>17</java.version>
+        <lombok.version>1.18.42</lombok.version>
+    </properties>
+
     <dependencies>
+        <!--
+            Shared event contracts — in enterprise this would be resolved from
+            Nexus/Artifactory. Locally: cd banking-events-common && mvn install -DskipTests
+        -->
         <dependency>
             <groupId>com.banking</groupId>
             <artifactId>banking-events-common</artifactId>
@@ -58,6 +69,19 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
         </plugins>
     </build>

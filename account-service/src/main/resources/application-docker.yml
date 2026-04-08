@@ -19,6 +19,9 @@ spring:
             solace:
               java:
                 host: "tcp://solace:55555"
+                msgVpn: banking-vpn
+                clientUsername: account-svc
+                clientPassword: ${SOLACE_ACCOUNT_SVC_PASSWORD}
 
 app:
   routing:

@@ -1,0 +1,16 @@
+# ── Prod profile ────────────────────────────────────────────────────
+# banking-vpn with per-service credentials.
+# routing-service is publisher only — no consumer queues needed.
+# Usage: SPRING_PROFILES_ACTIVE=prod with env vars for passwords.
+
+spring:
+  cloud:
+    stream:
+      binders:
+        solace-binder:
+          environment:
+            solace:
+              java:
+                msgVpn: banking-vpn
+                clientUsername: routing-svc
+                clientPassword: ${SOLACE_ROUTING_SVC_PASSWORD}

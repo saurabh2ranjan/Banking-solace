@@ -21,7 +21,7 @@ public class RoutingController {
 
     private final RoutingService routingService;
 
-    /** All active routing rules — used by services at startup to load their cache. */
+    /** All active routing rules — used by services at the startup to load their cache. */
     @GetMapping
     public ResponseEntity<List<RouteResponse>> getAllRoutes() {
         return ResponseEntity.ok(routingService.getAllActiveRoutes());

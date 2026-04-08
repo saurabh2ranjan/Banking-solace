@@ -5,6 +5,9 @@ version: '3.8'
 # Usage: docker-compose up --build
 # ─────────────────────────────────────────────────────────────────
 
+env_file:
+  - .env
+
 services:
 
   # ── Infrastructure ──────────────────────────────────────────────
@@ -51,6 +54,31 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  # ── Solace VPN + Queue Provisioner ─────────────────────────────
+  # Runs configure-solace.sh once after Solace is healthy, then exits.
+  # All app services depend on this completing successfully.
+
+  solace-init:
+    image: curlimages/curl:latest
+    container_name: solace-init
+    entrypoint: ["/bin/sh", "/scripts/configure-solace.sh"]
+    environment:
+      SOLACE_HOST: solace
+      SOLACE_MGMT_PORT: "8080"
+      SOLACE_ACCOUNT_SVC_PASSWORD: ${SOLACE_ACCOUNT_SVC_PASSWORD}
+      SOLACE_PAYMENT_SVC_PASSWORD: ${SOLACE_PAYMENT_SVC_PASSWORD}
+      SOLACE_NOTIFICATION_SVC_PASSWORD: ${SOLACE_NOTIFICATION_SVC_PASSWORD}
+      SOLACE_AUDIT_SVC_PASSWORD: ${SOLACE_AUDIT_SVC_PASSWORD}
+      SOLACE_ROUTING_SVC_PASSWORD: ${SOLACE_ROUTING_SVC_PASSWORD}
+    volumes:
+      - ./infra/configure-solace.sh:/scripts/configure-solace.sh:ro
+    depends_on:
+      solace:
+        condition: service_healthy
+    networks:
+      - banking-network
+    restart: no
 
   postgres-accounts:
     image: postgres:16-alpine
@@ -136,21 +164,22 @@ services:
 
   routing-service:
     build:
-      context: .
-      dockerfile: routing-service/Dockerfile
+      context: ./routing-service
+      dockerfile: Dockerfile
     container_name: routing-service
     ports:
       - "8085:8085"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8085
+      SOLACE_ROUTING_SVC_PASSWORD: ${SOLACE_ROUTING_SVC_PASSWORD}
     depends_on:
       postgres-routing:
         condition: service_healthy
       redis:
         condition: service_healthy
-      solace:
-        condition: service_healthy
+      solace-init:
+        condition: service_completed_successfully
     networks:
       - banking-network
     healthcheck:
@@ -178,16 +207,16 @@ services:
       SPRING_DATASOURCE_USERNAME: accounts_user
       SPRING_DATASOURCE_PASSWORD: accounts_pass
       SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: banking-vpn
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: account-svc
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ${SOLACE_ACCOUNT_SVC_PASSWORD}
     volumes:
       - routing-cache-account:/var/cache/routing
     depends_on:
       postgres-accounts:
         condition: service_healthy
-      solace:
-        condition: service_healthy
+      solace-init:
+        condition: service_completed_successfully
       routing-service:
         condition: service_started   # soft — account-service falls back via cache on routing-service delay
     networks:
@@ -214,16 +243,16 @@ services:
       SPRING_DATASOURCE_USERNAME: payments_user
       SPRING_DATASOURCE_PASSWORD: payments_pass
       SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: banking-vpn
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: payment-svc
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ${SOLACE_PAYMENT_SVC_PASSWORD}
     volumes:
       - routing-cache-payment:/var/cache/routing
     depends_on:
       postgres-payments:
         condition: service_healthy
-      solace:
-        condition: service_healthy
+      solace-init:
+        condition: service_completed_successfully
       routing-service:
         condition: service_started
     networks:
@@ -247,12 +276,12 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8083
       SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: banking-vpn
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: notification-svc
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ${SOLACE_NOTIFICATION_SVC_PASSWORD}
     depends_on:
-      solace:
-        condition: service_healthy
+      solace-init:
+        condition: service_completed_successfully
       routing-service:
         condition: service_started
     networks:
@@ -277,14 +306,14 @@ services:
       SERVER_PORT: 8084
       SPRING_DATA_MONGODB_URI: mongodb://audit_user:audit_pass@mongo-audit:27017/audit_db?authSource=admin
       SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_HOST: tcp://solace:55555
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: default
-      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ""
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_MSGVPN: banking-vpn
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTUSERNAME: audit-svc
+      SPRING_CLOUD_STREAM_BINDERS_SOLACE-BINDER_ENVIRONMENT_SOLACE_JAVA_CLIENTPASSWORD: ${SOLACE_AUDIT_SVC_PASSWORD}
     depends_on:
       mongo-audit:
         condition: service_started
-      solace:
-        condition: service_healthy
+      solace-init:
+        condition: service_completed_successfully
       routing-service:
         condition: service_started
     networks:

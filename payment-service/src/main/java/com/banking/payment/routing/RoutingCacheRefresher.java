@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
+ * Solace event listener for route changes
  * Subscribes to routing change events from routing-service.
  *
  * Two event types handled:

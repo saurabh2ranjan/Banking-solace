@@ -14,7 +14,8 @@ banking/
     │   ├── completed    → Payment processed successfully
     │   └── failed       → Payment rejected or failed
     └── routing/
-        └── updated      → A topic routing rule was changed (cache invalidation)
+        ├── updated      → A single topic routing rule was changed (cache invalidation)
+        └── bulk-updated → Multiple routing rules changed atomically
 ```
 
 The `v1` version segment allows future `v2` topics to coexist on the same broker during gradual migrations.
@@ -99,23 +100,27 @@ Topic strings are not hardcoded in publisher services. They are resolved at runt
 
 ## Solace Consumer Groups
 
-Spring Cloud Stream with the Solace binder automatically provisions queues when a service starts. Queue names follow the pattern `{function}_{destination}_group_{consumerGroup}`.
+The `solace-init` container (runs `infra/configure-solace.sh` once at startup) pre-declares all durable queues on `banking-vpn` before services connect. Queue names follow the pattern `{function}_{destination}_group_{consumerGroup}` as provisioned by the script.
 
-| Service              | Function               | Topic                              | Consumer Group               | Queue semantics     |
-|----------------------|------------------------|------------------------------------|------------------------------|---------------------|
-| account-service      | processPayment         | `banking/v1/payment/initiated`     | `account-service-group`      | Durable             |
-| account-service      | handleRoutingUpdated   | `banking/v1/routing/updated`       | *(none)*                     | Non-durable fan-out |
-| payment-service      | handlePaymentCompleted | `banking/v1/payment/completed`     | `payment-service-group`      | Durable             |
-| payment-service      | handlePaymentFailed    | `banking/v1/payment/failed`        | `payment-service-group`      | Durable             |
-| payment-service      | handleRoutingUpdated   | `banking/v1/routing/updated`       | *(none)*                     | Non-durable fan-out |
-| notification-service | onAccountCreated       | `banking/v1/account/created`       | `notification-service-group` | Durable             |
-| notification-service | onPaymentCompleted     | `banking/v1/payment/completed`     | `notification-service-group` | Durable             |
-| notification-service | onPaymentFailed        | `banking/v1/payment/failed`        | `notification-service-group` | Durable             |
-| audit-service        | auditAccountCreated    | `banking/v1/account/created`       | `audit-service-group`        | Durable             |
-| audit-service        | auditAccountUpdated    | `banking/v1/account/updated`       | `audit-service-group`        | Durable             |
-| audit-service        | auditPaymentInitiated  | `banking/v1/payment/initiated`     | `audit-service-group`        | Durable             |
-| audit-service        | auditPaymentCompleted  | `banking/v1/payment/completed`     | `audit-service-group`        | Durable             |
-| audit-service        | auditPaymentFailed     | `banking/v1/payment/failed`        | `audit-service-group`        | Durable             |
+| Service              | Function                   | Topic                                  | Consumer Group               | Queue semantics     |
+|----------------------|----------------------------|----------------------------------------|------------------------------|---------------------|
+| account-service      | processPayment             | `banking/v1/payment/initiated`         | `account-service-group`      | Durable             |
+| account-service      | handleRoutingUpdated       | `banking/v1/routing/updated`           | *(none)*                     | Non-durable fan-out |
+| account-service      | handleRoutingBulkUpdated   | `banking/v1/routing/bulk-updated`      | *(none)*                     | Non-durable fan-out |
+| payment-service      | handlePaymentCompleted     | `banking/v1/payment/completed`         | `payment-service-group`      | Durable             |
+| payment-service      | handlePaymentFailed        | `banking/v1/payment/failed`            | `payment-service-group`      | Durable             |
+| payment-service      | handleRoutingUpdated       | `banking/v1/routing/updated`           | *(none)*                     | Non-durable fan-out |
+| payment-service      | handleRoutingBulkUpdated   | `banking/v1/routing/bulk-updated`      | *(none)*                     | Non-durable fan-out |
+| notification-service | onAccountCreated           | `banking/v1/account/created`           | `notification-service-group` | Durable             |
+| notification-service | onAccountClosed            | `banking/v1/account/closed`            | `notification-service-group` | Durable             |
+| notification-service | onPaymentCompleted         | `banking/v1/payment/completed`         | `notification-service-group` | Durable             |
+| notification-service | onPaymentFailed            | `banking/v1/payment/failed`            | `notification-service-group` | Durable             |
+| audit-service        | auditAccountCreated        | `banking/v1/account/created`           | `audit-service-group`        | Durable             |
+| audit-service        | auditAccountUpdated        | `banking/v1/account/updated`           | `audit-service-group`        | Durable             |
+| audit-service        | auditAccountClosed         | `banking/v1/account/closed`            | `audit-service-group`        | Durable             |
+| audit-service        | auditPaymentInitiated      | `banking/v1/payment/initiated`         | `audit-service-group`        | Durable             |
+| audit-service        | auditPaymentCompleted      | `banking/v1/payment/completed`         | `audit-service-group`        | Durable             |
+| audit-service        | auditPaymentFailed         | `banking/v1/payment/failed`            | `audit-service-group`        | Durable             |
 
 **Durable subscriptions**: Named consumer groups ensure messages are queued while a service is temporarily offline — at-least-once delivery.
 
